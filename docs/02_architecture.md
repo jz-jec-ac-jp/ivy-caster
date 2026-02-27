@@ -22,7 +22,7 @@
 
 ## 2. システム構成図
 
-```
+```text
 管理者PC (Windows 11)
 └── Ivy-Caster Console (.exe / WPF .NET 10)
     ├── View層 (XAML)      ← TreeView + ListView + ContextMenu
@@ -67,7 +67,7 @@
 
 ## 4. .NET ソリューション構造
 
-```
+```text
 jz-ghost/
 ├── IvyCaster.sln
 ├── src/
