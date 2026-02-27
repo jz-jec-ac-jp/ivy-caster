@@ -69,7 +69,7 @@
 
 ```text
 jz-ghost/
-├── IvyCaster.sln
+├── IvyCaster.slnx
 ├── src/
 │   ├── IvyCaster.Console/       # WPF管理コンソール
 │   │   ├── Views/               # XAML
