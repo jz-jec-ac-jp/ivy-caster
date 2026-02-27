@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/IvyCaster.Agent/IvyCaster.Agent.csproj" />
+    <Project Path="src/IvyCaster.Console/IvyCaster.Console.csproj" />
+    <Project Path="src/IvyCaster.Core/IvyCaster.Core.csproj" />
+    <Project Path="src/IvyCaster.Infrastructure/IvyCaster.Infrastructure.csproj" />
+    <Project Path="src/IvyCaster.Shared/IvyCaster.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/IvyCaster.Core.Tests/IvyCaster.Core.Tests.csproj" />
+  </Folder>
+</Solution>
