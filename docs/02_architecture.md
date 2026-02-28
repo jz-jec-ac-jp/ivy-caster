@@ -29,7 +29,7 @@
     ├── ViewModel層 (C#)   ← MVVM、ICommand、ObservableCollection
     ├── Service層 (C#)     ← ビジネスロジック
     ├── Infrastructure層   ← EF Core + gRPC Server
-    └── SQLite DB           ← jz-ghost.db
+    └── SQLite DB           ← ivy-caster.db
 
 学生PC × N台
 └── Ivy-Caster Agent (.exe / .NET 10 Worker Service)
@@ -68,7 +68,7 @@
 ## 4. .NET ソリューション構造
 
 ```text
-jz-ghost/
+ivy-caster/
 ├── IvyCaster.slnx
 ├── src/
 │   ├── IvyCaster.Console/       # WPF管理コンソール
