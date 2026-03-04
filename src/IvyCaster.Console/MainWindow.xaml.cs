@@ -429,8 +429,7 @@ public partial class MainWindow : Window
         if (machine != null && task.TaskType == "エージェント展開")
         {
             machine.HasAgent = true;
-            if (!_agentInstalledGroup.Children.Contains(machine))
-                _agentInstalledGroup.Children.Add(machine);
+            UpsertAgentInstalledMirror(machine);
         }
 
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -449,7 +448,7 @@ public partial class MainWindow : Window
                 if (machine != null && task.TaskType == "エージェント展開" && !success)
                 {
                     machine.HasAgent = false;
-                    _agentInstalledGroup.Children.Remove(machine);
+                    RemoveAgentInstalledMirror(machine);
                 }
 
                 WriteLog($"タスク完了: {task.TaskType} -> {task.TargetHost} [{task.Status}]");
@@ -457,6 +456,28 @@ public partial class MainWindow : Window
             }
         };
         timer.Start();
+    }
+
+    private void UpsertAgentInstalledMirror(ExplorerNode machine)
+    {
+        if (_agentInstalledGroup.Children.Any(x => x.IpAddress == machine.IpAddress))
+            return;
+
+        var mirror = ExplorerNode.CreateMachine(
+            machine.Name,
+            machine.IpAddress,
+            machine.OperatingSystem,
+            machine.Status
+        );
+        mirror.HasAgent = true;
+        _agentInstalledGroup.Children.Add(mirror);
+    }
+
+    private void RemoveAgentInstalledMirror(ExplorerNode machine)
+    {
+        var mirror = _agentInstalledGroup.Children.FirstOrDefault(x => x.IpAddress == machine.IpAddress);
+        if (mirror != null)
+            _agentInstalledGroup.Children.Remove(mirror);
     }
 
     private void MachineTreeView_OnSelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
