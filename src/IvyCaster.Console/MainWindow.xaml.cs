@@ -657,6 +657,25 @@ public partial class MainWindow : Window
         _isDragging = false;
     }
 
+    private static void SelectTreeViewItemOnRightClick(MouseButtonEventArgs e)
+    {
+        var hit = e.OriginalSource as DependencyObject;
+        while (hit is not null && hit is not TreeViewItem)
+            hit = VisualTreeHelper.GetParent(hit);
+
+        if (hit is TreeViewItem item)
+        {
+            item.IsSelected = true;
+            item.Focus();
+        }
+    }
+
+    private void MachineTreeView_OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e) =>
+        SelectTreeViewItemOnRightClick(e);
+
+    private void TaskExplorerTreeView_OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e) =>
+        SelectTreeViewItemOnRightClick(e);
+
     private void TreeView_PreviewMouseMove(object sender, MouseEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed) return;

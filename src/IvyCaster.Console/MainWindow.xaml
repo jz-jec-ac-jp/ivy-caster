@@ -278,6 +278,7 @@
                                       Background="Transparent"
                                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                       AllowDrop="True"
+                                      PreviewMouseRightButtonDown="MachineTreeView_OnPreviewMouseRightButtonDown"
                                       PreviewMouseLeftButtonDown="TreeView_PreviewMouseLeftButtonDown"
                                       PreviewMouseMove="TreeView_PreviewMouseMove"
                                       DragOver="TreeView_DragOver"
@@ -566,6 +567,7 @@
                             <TreeView Grid.Row="1"
                                       x:Name="TaskExplorerTreeView"
                                       Margin="0,8,0,0"
+                                      PreviewMouseRightButtonDown="TaskExplorerTreeView_OnPreviewMouseRightButtonDown"
                                       SelectedItemChanged="TaskExplorerTreeView_OnSelectedItemChanged">
                                 <TreeView.ContextMenu>
                                     <ContextMenu>
