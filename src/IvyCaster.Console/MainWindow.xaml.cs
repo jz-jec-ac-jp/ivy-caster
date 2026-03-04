@@ -414,6 +414,12 @@ public partial class MainWindow : Window
     {
         e.Handled = true;
         var column = e.Column;
+        if (string.IsNullOrWhiteSpace(column.SortMemberPath))
+        {
+            StatusTextBlock.Text = "この列は並び替えできません";
+            return;
+        }
+
         var direction = column.SortDirection == ListSortDirection.Ascending
             ? ListSortDirection.Descending
             : ListSortDirection.Ascending;
@@ -1303,7 +1309,8 @@ public class TaskItem : INotifyPropertyChanged
         {
             var end = FinishedAt ?? DateTime.Now;
             var span = end - CreatedAt;
-            return span.TotalMinutes >= 1 ? $"{span.Minutes}分{span.Seconds}秒" : $"{span.TotalSeconds:F0}秒";
+            var totalMinutes = (int)span.TotalMinutes;
+            return totalMinutes >= 1 ? $"{totalMinutes}分{span.Seconds}秒" : $"{span.TotalSeconds:F0}秒";
         }
     }
 
