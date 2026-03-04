@@ -738,7 +738,7 @@ public partial class MainWindow : Window
 
         if (targetNode == null)
         {
-            if (!_treeRoots.Contains(source))
+            if (!_treeRoots.Contains(source) && source.NodeType == ExplorerNodeType.Group)
                 e.Effects = DragDropEffects.Move;
             ClearDropTarget();
         }
@@ -767,7 +767,7 @@ public partial class MainWindow : Window
 
         if (targetNode == null)
         {
-            if (_treeRoots.Contains(source)) return;
+            if (_treeRoots.Contains(source) || source.NodeType != ExplorerNodeType.Group) return;
             RemoveNode(_treeRoots, source, _agentInstalledGroup.Children);
             _treeRoots.Add(source);
             WriteLog($"移動: {source.Name} → ルート");
@@ -987,7 +987,17 @@ public sealed class ExplorerNode : INotifyPropertyChanged
     public string OperatingSystem { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
     public ObservableCollection<ExplorerNode> Children { get; } = [];
-    public bool IsExpanded { get; set; }
+    private bool _isExpanded;
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded == value) return;
+            _isExpanded = value;
+            OnPropertyChanged();
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>
@@ -1111,7 +1121,17 @@ public sealed class TaskDefinitionNode : INotifyPropertyChanged
     public bool IsBuiltIn { get; init; }
     public string CommandOrPath { get; init; } = string.Empty;
     public ObservableCollection<TaskDefinitionNode> Children { get; } = [];
-    public bool IsExpanded { get; set; }
+    private bool _isExpanded;
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded == value) return;
+            _isExpanded = value;
+            OnPropertyChanged();
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>
