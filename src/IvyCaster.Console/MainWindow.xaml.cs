@@ -816,6 +816,7 @@ public partial class MainWindow : Window
         if (destGroup.GroupKind is GroupKind.Discovery or GroupKind.AgentInstalled) return false;
 
         var sourceParent = FindParentGroup(source);
+        if (sourceParent?.GroupKind == GroupKind.AgentInstalled) return false;
         if (sourceParent != null && ReferenceEquals(sourceParent, destGroup)) return false;
 
         return true;
