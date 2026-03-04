@@ -768,7 +768,8 @@ public partial class MainWindow : Window
         if (targetNode == null)
         {
             if (_treeRoots.Contains(source) || source.NodeType != ExplorerNodeType.Group) return;
-            RemoveNode(_treeRoots, source, _agentInstalledGroup.Children);
+            if (!RemoveNode(_treeRoots, source, _agentInstalledGroup.Children))
+                return;
             _treeRoots.Add(source);
             WriteLog($"移動: {source.Name} → ルート");
             StatusTextBlock.Text = $"{source.Name} をルートに移動";
@@ -783,7 +784,8 @@ public partial class MainWindow : Window
 
         if (destGroup == null) return;
 
-        RemoveNode(_treeRoots, source, _agentInstalledGroup.Children);
+        if (!RemoveNode(_treeRoots, source, _agentInstalledGroup.Children))
+            return;
         destGroup.Children.Add(source);
         destGroup.IsExpanded = true;
 
@@ -800,13 +802,12 @@ public partial class MainWindow : Window
     {
         if (ReferenceEquals(source, target)) return false;
 
-        if (target.GroupKind == GroupKind.Discovery || target.GroupKind == GroupKind.AgentInstalled) return false;
-
         if (source.NodeType == ExplorerNodeType.Group && IsDescendant(source, target))
             return false;
 
         var destGroup = target.NodeType == ExplorerNodeType.Group ? target : FindParentGroup(target);
         if (destGroup == null) return false;
+        if (destGroup.GroupKind is GroupKind.Discovery or GroupKind.AgentInstalled) return false;
 
         var sourceParent = FindParentGroup(source);
         if (sourceParent != null && ReferenceEquals(sourceParent, destGroup)) return false;
@@ -1249,12 +1250,14 @@ public class TaskItem : INotifyPropertyChanged
         get => _status;
         set
         {
+            if (_status == value) return;
             _status = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(StatusLabel));
             OnPropertyChanged(nameof(StatusColor));
             OnPropertyChanged(nameof(StatusIcon));
             OnPropertyChanged(nameof(StatusBadgeBg));
+            OnPropertyChanged(nameof(Elapsed));
         }
     }
 
