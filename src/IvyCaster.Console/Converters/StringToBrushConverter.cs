@@ -9,7 +9,16 @@ public sealed class StringToBrushConverter : IValueConverter
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         if (value is string hex)
-            return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
+        {
+            try
+            {
+                return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
+            }
+            catch
+            {
+                return Brushes.Gray;
+            }
+        }
 
         return Brushes.Gray;
     }
