@@ -13,194 +13,11 @@
         MinWidth="900"
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
-        <local:TreeDepthToMarginConverter x:Key="DepthConverter" />
-        <local:StringToBrushConverter x:Key="StringToBrush" />
-
-        <Style TargetType="TabItem">
-            <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
-            <Setter Property="Padding" Value="14,6,14,6" />
-            <Setter Property="FontWeight" Value="Normal" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabItem">
-                        <Grid>
-                            <Border x:Name="TabBg"
-                                    CornerRadius="6,6,0,0"
-                                    BorderThickness="1,1,1,0"
-                                    BorderBrush="Transparent"
-                                    Background="Transparent"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter x:Name="ContentSite"
-                                                  HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center"
-                                                  ContentSource="Header" />
-                            </Border>
-                            <Border x:Name="ActiveBar"
-                                    Height="3"
-                                    VerticalAlignment="Bottom"
-                                    Background="{StaticResource AccentBrush}"
-                                    Visibility="Collapsed" />
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="TabBg" Property="Background" Value="#08000000" />
-                                <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="TabBg" Property="Background" Value="#FFF5F9FF" />
-                                <Setter TargetName="TabBg" Property="BorderBrush" Value="{StaticResource BorderBrush}" />
-                                <Setter TargetName="ActiveBar" Property="Visibility" Value="Visible" />
-                                <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                                <Setter Property="FontWeight" Value="SemiBold" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="TreeViewItem">
-            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TreeViewItem">
-                        <StackPanel>
-                            <Grid x:Name="HeaderRow" MinHeight="30">
-                                <Border x:Name="RowBg" Background="Transparent">
-                                    <DockPanel Margin="{Binding RelativeSource={RelativeSource TemplatedParent},
-                                                                Converter={StaticResource DepthConverter}}"
-                                               VerticalAlignment="Center">
-                                        <ToggleButton x:Name="Expander"
-                                                      DockPanel.Dock="Left"
-                                                      IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
-                                                      ClickMode="Press"
-                                                      Focusable="False"
-                                                      Width="20">
-                                            <ToggleButton.Template>
-                                                <ControlTemplate TargetType="ToggleButton">
-                                                    <Border Background="Transparent" Padding="4,0">
-                                                        <Path x:Name="Arrow"
-                                                              Data="M 0,0 L 5,4 L 0,8"
-                                                              Stroke="{StaticResource ChevronBrush}"
-                                                              StrokeThickness="1.5"
-                                                              VerticalAlignment="Center"
-                                                              HorizontalAlignment="Center"
-                                                              SnapsToDevicePixels="True"
-                                                              RenderTransformOrigin="0.5,0.5">
-                                                            <Path.RenderTransform>
-                                                                <RotateTransform Angle="0" />
-                                                            </Path.RenderTransform>
-                                                        </Path>
-                                                    </Border>
-                                                    <ControlTemplate.Triggers>
-                                                        <Trigger Property="IsChecked" Value="True">
-                                                            <Setter TargetName="Arrow" Property="RenderTransform">
-                                                                <Setter.Value>
-                                                                    <RotateTransform Angle="90" />
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                        </Trigger>
-                                                    </ControlTemplate.Triggers>
-                                                </ControlTemplate>
-                                            </ToggleButton.Template>
-                                        </ToggleButton>
-                                        <ContentPresenter ContentSource="Header"
-                                                          HorizontalAlignment="Stretch"
-                                                          VerticalAlignment="Center" />
-                                    </DockPanel>
-                                </Border>
-                                <Border x:Name="SelectionBar"
-                                        Width="3"
-                                        HorizontalAlignment="Left"
-                                        Background="{StaticResource AccentBrush}"
-                                        CornerRadius="1.5"
-                                        Margin="0,4"
-                                        Visibility="Collapsed" />
-                            </Grid>
-                            <ItemsPresenter x:Name="ItemsHost" Visibility="Collapsed" />
-                        </StackPanel>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsExpanded" Value="True">
-                                <Setter TargetName="ItemsHost" Property="Visibility" Value="Visible" />
-                            </Trigger>
-                            <Trigger Property="HasItems" Value="False">
-                                <Setter TargetName="Expander" Property="Visibility" Value="Hidden" />
-                            </Trigger>
-                            <Trigger SourceName="RowBg" Property="IsMouseOver" Value="True">
-                                <Setter TargetName="RowBg" Property="Background" Value="{StaticResource HoverBgBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="RowBg" Property="Background" Value="{StaticResource SelectionBgBrush}" />
-                                <Setter TargetName="SelectionBar" Property="Visibility" Value="Visible" />
-                            </Trigger>
-                            <Trigger Property="Tag" Value="DropTarget">
-                                <Setter TargetName="RowBg" Property="Background" Value="#D0E8FF" />
-                                <Setter TargetName="RowBg" Property="Opacity" Value="1" />
-                                <Setter TargetName="SelectionBar" Property="Visibility" Value="Visible" />
-                                <Setter TargetName="SelectionBar" Property="Background" Value="#2196F3" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <HierarchicalDataTemplate DataType="{x:Type local:ExplorerNode}" ItemsSource="{Binding Children}">
-            <StackPanel Orientation="Horizontal" Margin="2,1,0,1">
-                <TextBlock x:Name="IconTextBlock"
-                           Width="18"
-                           Margin="0,0,6,0"
-                           FontFamily="Segoe Fluent Icons"
-                           Foreground="{Binding IconColor}"
-                           Text="{Binding IconGlyph}" />
-                <StackPanel>
-                    <TextBlock x:Name="PrimaryTextBlock" Text="{Binding PrimaryText}" />
-                    <TextBlock x:Name="SecondaryTextBlock"
-                               FontSize="11"
-                               Opacity="0.65"
-                               Text="{Binding SecondaryText}" />
-                </StackPanel>
-            </StackPanel>
-            <HierarchicalDataTemplate.Triggers>
-                <DataTrigger Binding="{Binding NodeType}" Value="{x:Static local:ExplorerNodeType.Group}">
-                    <Setter TargetName="PrimaryTextBlock" Property="FontWeight" Value="SemiBold" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=TreeViewItem}, Path=IsSelected}" Value="True">
-                    <Setter TargetName="IconTextBlock" Property="Foreground" Value="{StaticResource AccentTextBrush}" />
-                    <Setter TargetName="PrimaryTextBlock" Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                    <Setter TargetName="SecondaryTextBlock" Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
-                </DataTrigger>
-            </HierarchicalDataTemplate.Triggers>
-        </HierarchicalDataTemplate>
-
-        <HierarchicalDataTemplate DataType="{x:Type local:TaskDefinitionNode}" ItemsSource="{Binding Children}">
-            <StackPanel Orientation="Horizontal" Margin="0,1,0,1">
-                <TextBlock x:Name="TaskIconTextBlock"
-                           Width="18"
-                           Margin="0,0,6,0"
-                           FontFamily="Segoe Fluent Icons"
-                           Foreground="{Binding IconColor}"
-                           Text="{Binding IconGlyph}" />
-                <StackPanel>
-                    <TextBlock x:Name="TaskPrimaryTextBlock" Text="{Binding PrimaryText}" />
-                    <TextBlock x:Name="TaskSecondaryTextBlock"
-                               FontSize="11"
-                               Opacity="0.65"
-                               Text="{Binding SecondaryText}" />
-                </StackPanel>
-            </StackPanel>
-            <HierarchicalDataTemplate.Triggers>
-                <DataTrigger Binding="{Binding NodeType}" Value="{x:Static local:TaskDefinitionNodeType.Group}">
-                    <Setter TargetName="TaskPrimaryTextBlock" Property="FontWeight" Value="SemiBold" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=TreeViewItem}, Path=IsSelected}" Value="True">
-                    <Setter TargetName="TaskIconTextBlock" Property="Foreground" Value="{StaticResource AccentTextBrush}" />
-                    <Setter TargetName="TaskPrimaryTextBlock" Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                    <Setter TargetName="TaskSecondaryTextBlock" Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
-                </DataTrigger>
-            </HierarchicalDataTemplate.Triggers>
-        </HierarchicalDataTemplate>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles/MainWindow.Resources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Window.Resources>
 
     <Grid>
@@ -567,13 +384,18 @@
                             <TreeView Grid.Row="1"
                                       x:Name="TaskExplorerTreeView"
                                       Margin="0,8,0,0"
+                                      AllowDrop="True"
                                       PreviewMouseRightButtonDown="TaskExplorerTreeView_OnPreviewMouseRightButtonDown"
+                                      PreviewMouseLeftButtonDown="TaskExplorerTreeView_OnPreviewMouseLeftButtonDown"
+                                      PreviewMouseMove="TaskExplorerTreeView_OnPreviewMouseMove"
+                                      DragOver="TaskExplorerTreeView_OnDragOver"
+                                      Drop="TaskExplorerTreeView_OnDrop"
+                                      DragLeave="TaskExplorerTreeView_OnDragLeave"
                                       SelectedItemChanged="TaskExplorerTreeView_OnSelectedItemChanged">
                                 <TreeView.ContextMenu>
                                     <ContextMenu>
                                         <MenuItem Header="タスクグループ追加" Click="AddTaskGroupButton_OnClick" />
-                                        <MenuItem Header="コマンドタスク追加" Click="CreateCommandTaskButton_OnClick" />
-                                        <MenuItem Header="ファイル配布タスク追加" Click="CreateFileTaskButton_OnClick" />
+                                        <MenuItem Header="タスク追加" Click="CreateTaskButton_OnClick" />
                                         <Separator />
                                         <MenuItem Header="名前の変更" Click="RenameTaskNodeButton_OnClick" />
                                         <MenuItem Header="複製" Click="DuplicateTaskNodeButton_OnClick" />
@@ -586,55 +408,159 @@
 
                     <Grid Grid.Row="1" Grid.Column="1" Margin="16,0,0,0">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
                         <GroupBox Grid.Row="0"
-                                  Header="コマンド実行"
+                                  Header="タスク編集"
                                   Margin="0,0,0,10">
                             <Grid Margin="10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="TaskCommandTextBox"
-                                         Height="34"
-                                         VerticalContentAlignment="Center"
-                                         Text="hostname" />
-                                <ui:Button Grid.Column="1"
-                                           Margin="8,0,0,0"
-                                           Width="120"
-                                           Height="34"
-                                           Content="実行キューへ追加"
-                                           Click="CreateCommandTaskButton_OnClick" />
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <Grid Grid.Row="0" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TaskCommandBatchInputTextBox"
+                                             Height="56"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             VerticalScrollBarVisibility="Auto"
+                                             VerticalContentAlignment="Top" />
+                                    <ui:Button Grid.Column="1"
+                                               Margin="8,0,0,0"
+                                               Width="140"
+                                               Height="34"
+                                               Content="コマンド追加"
+                                               Click="AddTaskCommandsButton_OnClick" />
+                                </Grid>
+
+                                <Grid Grid.Row="1" Margin="0,0,0,8">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"
+                                                   Text="配信先" />
+                                        <TextBox x:Name="TaskFileDestinationTextBox"
+                                                 Width="260"
+                                                 Height="34"
+                                                 VerticalContentAlignment="Center"
+                                                 Text="C:\temp\deploy\" />
+                                        <ui:Button Width="140"
+                                                   Margin="8,0,0,0"
+                                                   Height="34"
+                                                   Content="配信ファイル選択"
+                                                   Click="AddTaskFilesButton_OnClick" />
+                                    </StackPanel>
+                                    <DockPanel Grid.Row="1">
+                                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                                            <ui:Button x:Name="MoveTaskStepUpButton"
+                                                       Width="90"
+                                                       Height="34"
+                                                       Content="上へ"
+                                                       Click="MoveTaskStepUpButton_OnClick" />
+                                            <ui:Button x:Name="MoveTaskStepDownButton"
+                                                       Margin="8,0,0,0"
+                                                       Width="90"
+                                                       Height="34"
+                                                       Content="下へ"
+                                                       Click="MoveTaskStepDownButton_OnClick" />
+                                            <ui:Button x:Name="RemoveTaskStepButton"
+                                                       Margin="8,0,0,0"
+                                                       Width="90"
+                                                       Height="34"
+                                                       Content="削除"
+                                                       Click="RemoveTaskStepButton_OnClick" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Grid>
+
+                                <ListBox Grid.Row="2"
+                                         x:Name="TaskStepListBox"
+                                         AllowDrop="True"
+                                         PreviewMouseLeftButtonDown="TaskStepListBox_OnPreviewMouseLeftButtonDown"
+                                         PreviewMouseMove="TaskStepListBox_OnPreviewMouseMove"
+                                         DragOver="TaskStepListBox_OnDragOver"
+                                         Drop="TaskStepListBox_OnDrop"
+                                         DragLeave="TaskStepListBox_OnDragLeave"
+                                         SelectionChanged="TaskStepListBox_OnSelectionChanged">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Padding" Value="10,6" />
+                                            <Setter Property="Margin" Value="0,1" />
+                                            <Setter Property="Background" Value="Transparent" />
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <Grid>
+                                                            <Border x:Name="RowBorder"
+                                                                    Padding="{TemplateBinding Padding}"
+                                                                    BorderBrush="Transparent"
+                                                                    BorderThickness="0"
+                                                                    Background="{TemplateBinding Background}">
+                                                                <ContentPresenter />
+                                                            </Border>
+                                                            <Border x:Name="InsertAboveLine"
+                                                                    Height="2"
+                                                                    VerticalAlignment="Top"
+                                                                    Background="{StaticResource AccentBrush}"
+                                                                    Visibility="Collapsed" />
+                                                            <Border x:Name="InsertBelowLine"
+                                                                    Height="2"
+                                                                    VerticalAlignment="Bottom"
+                                                                    Background="{StaticResource AccentBrush}"
+                                                                    Visibility="Collapsed" />
+                                                        </Grid>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsSelected" Value="True">
+                                                                <Setter TargetName="RowBorder" Property="Background" Value="{StaticResource SelectionBgBrush}" />
+                                                            </Trigger>
+                                                            <Trigger Property="Tag" Value="InsertAbove">
+                                                                <Setter TargetName="InsertAboveLine" Property="Visibility" Value="Visible" />
+                                                            </Trigger>
+                                                            <Trigger Property="Tag" Value="InsertBelow">
+                                                                <Setter TargetName="InsertBelowLine" Property="Visibility" Value="Visible" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                </ListBox>
+
+                                <StackPanel Grid.Row="3"
+                                            Margin="0,8,0,0"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Right">
+                                    <ui:Button x:Name="UpdateSelectedTaskButton"
+                                               Width="120"
+                                               Height="34"
+                                               Content="保存"
+                                               IsEnabled="False"
+                                               Click="UpdateTaskButton_OnClick" />
+                                    <ui:Button x:Name="CancelTaskEditButton"
+                                               Margin="8,0,0,0"
+                                               Width="120"
+                                               Height="34"
+                                               Content="キャンセル"
+                                               Click="CancelTaskEditButton_OnClick" />
+                                </StackPanel>
+
                             </Grid>
                         </GroupBox>
 
-                        <GroupBox Grid.Row="1"
-                                  Header="ファイル配布"
-                                  Margin="0,0,0,10">
-                            <Grid Margin="10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="TaskFilePathTextBox"
-                                         Height="34"
-                                         VerticalContentAlignment="Center"
-                                         Text="C:\package\agent.zip" />
-                                <ui:Button Grid.Column="1"
-                                           Margin="8,0,0,0"
-                                           Width="120"
-                                           Height="34"
-                                           Content="配布キューへ追加"
-                                           Click="CreateFileTaskButton_OnClick" />
-                            </Grid>
-                        </GroupBox>
-
-                        <Border Grid.Row="2"
+                        <Border Grid.Row="1"
                                 Margin="0,0,0,10"
                                 Padding="8"
                                 CornerRadius="6"
@@ -644,17 +570,6 @@
                             <TextBlock Text="対象は『コンピューター管理』タブで選択したノードに対して実行します。"
                                        Opacity="0.75" />
                         </Border>
-
-                        <GroupBox Grid.Row="3"
-                                  Header="タスク定義プレビュー">
-                            <TextBox x:Name="TaskDefinitionPreviewTextBox"
-                                     Margin="8"
-                                     IsReadOnly="True"
-                                     TextWrapping="Wrap"
-                                     VerticalScrollBarVisibility="Auto"
-                                     AcceptsReturn="True"
-                                     Text="ここにコマンド/配布タスクの詳細プレビューを表示します。" />
-                        </GroupBox>
                     </Grid>
                 </Grid>
             </TabItem>

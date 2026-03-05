@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Globalization;
+using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -17,16 +17,19 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<ExplorerNode> _treeRoots = [];
     private readonly ObservableCollection<TaskDefinitionNode> _taskRoots = [];
     private readonly ObservableCollection<TaskItem> _taskQueue = [];
+    private readonly ObservableCollection<string> _taskSteps = [];
     private readonly ExplorerNode _discoveryGroup = ExplorerNode.CreateDiscoveryGroup();
     private readonly ExplorerNode _agentInstalledGroup = ExplorerNode.CreateAgentInstalledGroup();
-    private readonly TaskDefinitionNode _taskCatalogRoot = TaskDefinitionNode.CreateRootGroup();
     private int _nextGroupNumber = 3;
     private int _nextMachineNumber = 4;
     private int _nextTaskGroupNumber = 1;
     private int _discoveryRun;
     private Point _dragStartPoint;
+    private Point _taskStepDragStartPoint;
     private bool _isDragging;
+    private bool _isTaskStepDragging;
     private TreeViewItem? _lastDropTarget;
+    private ListBoxItem? _lastTaskStepDropTarget;
 
     public MainWindow()
     {
@@ -37,6 +40,8 @@ public partial class MainWindow : Window
         MachineTreeView.ItemsSource = _treeRoots;
         TaskExplorerTreeView.ItemsSource = _taskRoots;
         TaskListView.ItemsSource = _taskQueue;
+        TaskStepListBox.ItemsSource = _taskSteps;
+        UpdateTaskStepButtonsState();
         TaskListView.Sorting += TaskListView_Sorting;
         WriteLog("コンソール起動");
     }
@@ -95,51 +100,252 @@ public partial class MainWindow : Window
             return;
 
         _nextTaskGroupNumber++;
-        var parent = GetSelectedTaskGroupNodeOrDefault();
         var group = TaskDefinitionNode.CreateGroup(name.Trim());
-        parent.Children.Add(group);
-        parent.IsExpanded = true;
+        var parent = GetSelectedTaskGroupNode();
+        if (parent != null)
+        {
+            parent.Children.Add(group);
+            parent.IsExpanded = true;
+        }
+        else
+        {
+            _taskRoots.Add(group);
+        }
 
         StatusTextBlock.Text = $"タスクグループ {group.Name} を追加";
         WriteLog($"タスクグループ追加: {group.Name}");
     }
 
-    private void CreateCommandTaskButton_OnClick(object sender, RoutedEventArgs e)
+    private void CreateTaskButton_OnClick(object sender, RoutedEventArgs e)
     {
-        var command = (TaskCommandTextBox.Text ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(command))
+        var taskValue = BuildTaskDefinitionFromSteps();
+        if (string.IsNullOrWhiteSpace(taskValue))
         {
-            StatusTextBlock.Text = "コマンドが空です";
+            StatusTextBlock.Text = "タスク入力が空です";
             return;
         }
 
-        var parent = GetSelectedTaskGroupNodeOrDefault();
-        var node = TaskDefinitionNode.CreateCommandTask($"cmd-{parent.Children.Count + 1:00}", command);
-        parent.Children.Add(node);
-        parent.IsExpanded = true;
+        var parent = GetSelectedTaskGroupNode();
+        var siblingCount = parent?.Children.Count ?? _taskRoots.Count;
+        var node = TaskDefinitionNode.CreateTask($"task-{siblingCount + 1:00}", taskValue);
+        if (parent != null)
+        {
+            parent.Children.Add(node);
+            parent.IsExpanded = true;
+            WriteLog($"タスク定義追加: {node.Name} -> {parent.Name}");
+        }
+        else
+        {
+            _taskRoots.Add(node);
+            WriteLog($"タスク定義追加: {node.Name} -> ルート");
+        }
 
-        StatusTextBlock.Text = $"コマンドタスクを追加: {node.Name}";
-        WriteLog($"タスク定義追加(コマンド): {node.Name} -> {parent.Name}");
+        StatusTextBlock.Text = $"タスクを追加: {node.Name}";
         UpdateTaskDefinitionPreview(node);
     }
 
-    private void CreateFileTaskButton_OnClick(object sender, RoutedEventArgs e)
+    private void UpdateTaskButton_OnClick(object sender, RoutedEventArgs e)
     {
-        var path = (TaskFilePathTextBox.Text ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(path))
+        if (TaskExplorerTreeView.SelectedItem is not TaskDefinitionNode selected ||
+            selected.NodeType != TaskDefinitionNodeType.Task)
         {
-            StatusTextBlock.Text = "配布ファイルパスが空です";
+            StatusTextBlock.Text = "更新対象タスクを選択してください";
             return;
         }
 
-        var parent = GetSelectedTaskGroupNodeOrDefault();
-        var node = TaskDefinitionNode.CreateFileTask($"dist-{parent.Children.Count + 1:00}", path);
-        parent.Children.Add(node);
-        parent.IsExpanded = true;
+        var updated = BuildTaskDefinitionFromSteps();
+        if (string.IsNullOrWhiteSpace(updated))
+        {
+            StatusTextBlock.Text = "タスク入力が空です";
+            return;
+        }
 
-        StatusTextBlock.Text = $"配布タスクを追加: {node.Name}";
-        WriteLog($"タスク定義追加(配布): {node.Name} -> {parent.Name}");
-        UpdateTaskDefinitionPreview(node);
+        selected.TaskDefinition = updated;
+        UpdateTaskDefinitionPreview(selected);
+        StatusTextBlock.Text = $"タスクを保存: {selected.Name}";
+        WriteLog($"タスク定義保存: {selected.Name}");
+    }
+
+    private void CancelTaskEditButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        TaskCommandBatchInputTextBox.Clear();
+
+        if (TaskExplorerTreeView.SelectedItem is TaskDefinitionNode selected &&
+            selected.NodeType == TaskDefinitionNodeType.Task)
+        {
+            LoadTaskSteps(selected.TaskDefinition);
+            StatusTextBlock.Text = $"編集を取り消し: {selected.Name}";
+            return;
+        }
+
+        _taskSteps.Clear();
+        SyncTaskDefinitionFromSteps();
+        StatusTextBlock.Text = "編集を取り消しました";
+    }
+
+    private void AddTaskCommandsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var commands = SplitLines(TaskCommandBatchInputTextBox.Text ?? string.Empty);
+        if (commands.Count == 0)
+        {
+            StatusTextBlock.Text = "追加するコマンドがありません";
+            return;
+        }
+
+        foreach (var command in commands)
+            _taskSteps.Add($"CMD: {command}");
+
+        TaskCommandBatchInputTextBox.Clear();
+        SyncTaskDefinitionFromSteps();
+        StatusTextBlock.Text = $"コマンドを {commands.Count} 件追加";
+        WriteLog($"タスクステップ追加(コマンド): {commands.Count} 件");
+    }
+
+    private void AddTaskFilesButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var destinationRoot = (TaskFileDestinationTextBox.Text ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(destinationRoot))
+        {
+            StatusTextBlock.Text = "配信先が未入力です";
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "配信ファイルを選択",
+            Multiselect = true
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        foreach (var file in dialog.FileNames)
+        {
+            var fileName = Path.GetFileName(file);
+            var destPath = CombineDestinationPath(destinationRoot, fileName);
+            _taskSteps.Add($"FILE: {file} -> {destPath}");
+        }
+
+        SyncTaskDefinitionFromSteps();
+        StatusTextBlock.Text = $"配信ファイルを {dialog.FileNames.Length} 件追加 (宛先: {destinationRoot})";
+        WriteLog($"タスクステップ追加(配信): {dialog.FileNames.Length} 件 -> {destinationRoot}");
+    }
+
+    private void MoveTaskStepUpButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var index = TaskStepListBox.SelectedIndex;
+        if (index <= 0) return;
+
+        (_taskSteps[index - 1], _taskSteps[index]) = (_taskSteps[index], _taskSteps[index - 1]);
+        TaskStepListBox.SelectedIndex = index - 1;
+        SyncTaskDefinitionFromSteps();
+    }
+
+    private void MoveTaskStepDownButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var index = TaskStepListBox.SelectedIndex;
+        if (index < 0 || index >= _taskSteps.Count - 1) return;
+
+        (_taskSteps[index + 1], _taskSteps[index]) = (_taskSteps[index], _taskSteps[index + 1]);
+        TaskStepListBox.SelectedIndex = index + 1;
+        SyncTaskDefinitionFromSteps();
+    }
+
+    private void RemoveTaskStepButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var index = TaskStepListBox.SelectedIndex;
+        if (index < 0) return;
+
+        _taskSteps.RemoveAt(index);
+        if (_taskSteps.Count > 0)
+            TaskStepListBox.SelectedIndex = Math.Min(index, _taskSteps.Count - 1);
+        SyncTaskDefinitionFromSteps();
+    }
+
+    private void TaskStepListBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateTaskStepButtonsState();
+    }
+
+    private void TaskStepListBox_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _taskStepDragStartPoint = e.GetPosition(TaskStepListBox);
+        _isTaskStepDragging = false;
+    }
+
+    private void TaskStepListBox_OnPreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed || _isTaskStepDragging)
+            return;
+
+        var current = e.GetPosition(TaskStepListBox);
+        var diff = _taskStepDragStartPoint - current;
+        if (Math.Abs(diff.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(diff.Y) < SystemParameters.MinimumVerticalDragDistance)
+            return;
+
+        var sourceIndex = GetTaskStepDropIndex(_taskStepDragStartPoint);
+        if (sourceIndex < 0 || sourceIndex >= _taskSteps.Count)
+            return;
+
+        _isTaskStepDragging = true;
+        var data = new DataObject(typeof(int), sourceIndex);
+        DragDrop.DoDragDrop(TaskStepListBox, data, DragDropEffects.Move);
+        _isTaskStepDragging = false;
+        ClearTaskStepDropIndicator();
+    }
+
+    private void TaskStepListBox_OnDragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(typeof(int)))
+        {
+            e.Effects = DragDropEffects.Move;
+            var point = e.GetPosition(TaskStepListBox);
+            if (TryGetTaskStepDropTarget(point, out var targetItem, out var insertAfter))
+                SetTaskStepDropIndicator(targetItem, insertAfter);
+            else
+                ClearTaskStepDropIndicator();
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+            ClearTaskStepDropIndicator();
+        }
+
+        e.Handled = true;
+    }
+
+    private void TaskStepListBox_OnDrop(object sender, DragEventArgs e)
+    {
+        ClearTaskStepDropIndicator();
+        if (!e.Data.GetDataPresent(typeof(int)))
+            return;
+
+        var sourceIndex = (int)e.Data.GetData(typeof(int));
+        if (sourceIndex < 0 || sourceIndex >= _taskSteps.Count)
+            return;
+
+        var point = e.GetPosition(TaskStepListBox);
+        var targetIndex = GetTaskStepInsertIndex(point);
+        if (targetIndex < 0)
+            targetIndex = _taskSteps.Count;
+
+        if (targetIndex == sourceIndex || targetIndex == sourceIndex + 1)
+            return;
+
+        var item = _taskSteps[sourceIndex];
+        _taskSteps.RemoveAt(sourceIndex);
+        if (targetIndex > sourceIndex)
+            targetIndex--;
+
+        _taskSteps.Insert(targetIndex, item);
+        TaskStepListBox.SelectedIndex = targetIndex;
+        SyncTaskDefinitionFromSteps();
+    }
+
+    private void TaskStepListBox_OnDragLeave(object sender, DragEventArgs e)
+    {
+        ClearTaskStepDropIndicator();
     }
 
     private void RenameTaskNodeButton_OnClick(object sender, RoutedEventArgs e)
@@ -196,8 +402,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            _taskCatalogRoot.Children.Add(clone);
-            _taskCatalogRoot.IsExpanded = true;
+            _taskRoots.Add(clone);
         }
 
         StatusTextBlock.Text = $"{selected.Name} を複製";
@@ -223,7 +428,6 @@ public partial class MainWindow : Window
         {
             StatusTextBlock.Text = $"{selected.Name} を削除";
             WriteLog($"タスクノード削除: {selected.Name}");
-            TaskDefinitionPreviewTextBox.Text = "ここにコマンド/配布タスクの詳細プレビューを表示します。";
             return;
         }
 
@@ -233,18 +437,19 @@ public partial class MainWindow : Window
     private void TaskExplorerTreeView_OnSelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         if (TaskExplorerTreeView.SelectedItem is TaskDefinitionNode selected)
+        {
             UpdateTaskDefinitionPreview(selected);
+            UpdateTaskEditorState(selected);
+        }
+        else
+        {
+            UpdateTaskEditorState(null);
+        }
     }
 
     private void UpdateTaskDefinitionPreview(TaskDefinitionNode node)
     {
-        TaskDefinitionPreviewTextBox.Text = node.NodeType switch
-        {
-            TaskDefinitionNodeType.Group => $"[タスクグループ]\n名前: {node.Name}\n子ノード: {node.Children.Count} 件",
-            TaskDefinitionNodeType.Command => $"[コマンド実行タスク]\n名前: {node.Name}\nコマンド:\n{node.CommandOrPath}",
-            TaskDefinitionNodeType.FileDistribution => $"[ファイル配布タスク]\n名前: {node.Name}\n配布元:\n{node.CommandOrPath}",
-            _ => node.Name
-        };
+        _ = node;
     }
 
     private void DuplicateNodeButton_OnClick(object sender, RoutedEventArgs e)
@@ -542,7 +747,7 @@ public partial class MainWindow : Window
         return _treeRoots.First(n => n.GroupKind == GroupKind.Default);
     }
 
-    private TaskDefinitionNode GetSelectedTaskGroupNodeOrDefault()
+    private TaskDefinitionNode? GetSelectedTaskGroupNode()
     {
         if (TaskExplorerTreeView.SelectedItem is TaskDefinitionNode node)
         {
@@ -554,7 +759,7 @@ public partial class MainWindow : Window
                 return parent;
         }
 
-        return _taskCatalogRoot;
+        return null;
     }
 
     private void SeedExplorerTree()
@@ -580,18 +785,8 @@ public partial class MainWindow : Window
 
     private void SeedTaskExplorerTree()
     {
-        var common = TaskDefinitionNode.CreateGroup("共通タスク");
-        common.Children.Add(TaskDefinitionNode.CreateCommandTask("hostname取得", "hostname"));
-
-        var deploy = TaskDefinitionNode.CreateGroup("配布タスク");
-        deploy.Children.Add(TaskDefinitionNode.CreateFileTask("agent配布", @"C:\package\agent.zip"));
-
-        _taskRoots.Add(_taskCatalogRoot);
-        _taskCatalogRoot.Children.Add(common);
-        _taskCatalogRoot.Children.Add(deploy);
-        _taskCatalogRoot.IsExpanded = true;
-        common.IsExpanded = true;
-        deploy.IsExpanded = true;
+        _taskRoots.Add(TaskDefinitionNode.CreateTask("hostname取得", "hostname"));
+        _taskRoots.Add(TaskDefinitionNode.CreateTask("agent配布", @"copy C:\package\agent.zip C:\temp\agent.zip"));
     }
 
     private ExplorerNode AddMachineToGroup(ExplorerNode targetGroup)
@@ -676,207 +871,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // ── Drag & Drop ──
-
-    private void TreeView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        _dragStartPoint = e.GetPosition(null);
-        _isDragging = false;
-    }
-
-    private static void SelectTreeViewItemOnRightClick(MouseButtonEventArgs e)
-    {
-        var hit = e.OriginalSource as DependencyObject;
-        while (hit is not null && hit is not TreeViewItem)
-            hit = VisualTreeHelper.GetParent(hit);
-
-        if (hit is TreeViewItem item)
-        {
-            item.IsSelected = true;
-            item.Focus();
-        }
-    }
-
-    private void MachineTreeView_OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e) =>
-        SelectTreeViewItemOnRightClick(e);
-
-    private void TaskExplorerTreeView_OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e) =>
-        SelectTreeViewItemOnRightClick(e);
-
-    private void TreeView_PreviewMouseMove(object sender, MouseEventArgs e)
-    {
-        if (e.LeftButton != MouseButtonState.Pressed) return;
-
-        var diff = _dragStartPoint - e.GetPosition(null);
-        if (Math.Abs(diff.X) < SystemParameters.MinimumHorizontalDragDistance &&
-            Math.Abs(diff.Y) < SystemParameters.MinimumVerticalDragDistance)
-            return;
-
-        if (_isDragging) return;
-
-        if (MachineTreeView.SelectedItem is not ExplorerNode source) return;
-
-        if (source.IsBuiltIn) return;
-
-        if (_treeRoots.Contains(source) && source.NodeType == ExplorerNodeType.Group && source.GroupKind == GroupKind.Discovery)
-            return;
-
-        _isDragging = true;
-        var data = new DataObject(typeof(ExplorerNode), source);
-        DragDrop.DoDragDrop(MachineTreeView, data, DragDropEffects.Move);
-        _isDragging = false;
-        ClearDropTarget();
-    }
-
-    private void TreeView_DragOver(object sender, DragEventArgs e)
-    {
-        e.Effects = DragDropEffects.None;
-
-        if (!e.Data.GetDataPresent(typeof(ExplorerNode)))
-        {
-            e.Handled = true;
-            return;
-        }
-
-        var source = (ExplorerNode)e.Data.GetData(typeof(ExplorerNode));
-        var targetItem = FindTreeViewItemUnderMouse(e);
-        var targetNode = targetItem?.DataContext as ExplorerNode;
-
-        if (targetNode == null)
-        {
-            if (!_treeRoots.Contains(source) && source.NodeType == ExplorerNodeType.Group)
-                e.Effects = DragDropEffects.Move;
-            ClearDropTarget();
-        }
-        else if (IsValidDropTarget(source, targetNode))
-        {
-            e.Effects = DragDropEffects.Move;
-            SetDropTarget(targetItem!);
-        }
-        else
-        {
-            ClearDropTarget();
-        }
-
-        e.Handled = true;
-    }
-
-    private void TreeView_Drop(object sender, DragEventArgs e)
-    {
-        ClearDropTarget();
-
-        if (!e.Data.GetDataPresent(typeof(ExplorerNode))) return;
-
-        var source = (ExplorerNode)e.Data.GetData(typeof(ExplorerNode));
-        var targetItem = FindTreeViewItemUnderMouse(e);
-        var targetNode = targetItem?.DataContext as ExplorerNode;
-
-        if (targetNode == null)
-        {
-            if (_treeRoots.Contains(source) || source.NodeType != ExplorerNodeType.Group) return;
-            if (!RemoveNode(_treeRoots, source, _agentInstalledGroup.Children))
-                return;
-            _treeRoots.Add(source);
-            WriteLog($"移動: {source.Name} → ルート");
-            StatusTextBlock.Text = $"{source.Name} をルートに移動";
-            return;
-        }
-
-        if (!IsValidDropTarget(source, targetNode)) return;
-
-        var destGroup = targetNode.NodeType == ExplorerNodeType.Group
-            ? targetNode
-            : FindParentGroup(targetNode);
-
-        if (destGroup == null) return;
-
-        if (!RemoveNode(_treeRoots, source, _agentInstalledGroup.Children))
-            return;
-        destGroup.Children.Add(source);
-        destGroup.IsExpanded = true;
-
-        WriteLog($"移動: {source.Name} → {destGroup.Name}");
-        StatusTextBlock.Text = $"{source.Name} を {destGroup.Name} に移動";
-    }
-
-    private void TreeView_DragLeave(object sender, DragEventArgs e)
-    {
-        ClearDropTarget();
-    }
-
-    private bool IsValidDropTarget(ExplorerNode source, ExplorerNode target)
-    {
-        if (ReferenceEquals(source, target)) return false;
-
-        if (source.NodeType == ExplorerNodeType.Group && IsDescendant(source, target))
-            return false;
-
-        var destGroup = target.NodeType == ExplorerNodeType.Group ? target : FindParentGroup(target);
-        if (destGroup == null) return false;
-        if (destGroup.GroupKind is GroupKind.Discovery or GroupKind.AgentInstalled) return false;
-
-        var sourceParent = FindParentGroup(source);
-        if (sourceParent?.GroupKind == GroupKind.AgentInstalled) return false;
-        if (sourceParent != null && ReferenceEquals(sourceParent, destGroup)) return false;
-
-        return true;
-    }
-
-    private bool IsDescendant(ExplorerNode ancestor, ExplorerNode candidate)
-    {
-        foreach (var child in ancestor.Children)
-        {
-            if (ReferenceEquals(child, candidate)) return true;
-            if (IsDescendant(child, candidate)) return true;
-        }
-        return false;
-    }
-
-    private ExplorerNode? FindParentGroup(ExplorerNode target)
-    {
-        return FindParentGroupIn(_treeRoots, target);
-    }
-
-    private ExplorerNode? FindParentGroupIn(IEnumerable<ExplorerNode> nodes, ExplorerNode target)
-    {
-        foreach (var node in nodes)
-        {
-            if (node.Children.Contains(target)) return node;
-            var found = FindParentGroupIn(node.Children, target);
-            if (found != null) return found;
-        }
-        return null;
-    }
-
-    private TreeViewItem? FindTreeViewItemUnderMouse(DragEventArgs e)
-    {
-        var hit = e.OriginalSource as DependencyObject;
-        while (hit != null)
-        {
-            if (hit is TreeViewItem tvi) return tvi;
-            hit = VisualTreeHelper.GetParent(hit);
-        }
-        return null;
-    }
-
-    private void SetDropTarget(TreeViewItem item)
-    {
-        if (_lastDropTarget != null && _lastDropTarget != item)
-            _lastDropTarget.Tag = null;
-
-        item.Tag = "DropTarget";
-        _lastDropTarget = item;
-    }
-
-    private void ClearDropTarget()
-    {
-        if (_lastDropTarget != null)
-        {
-            _lastDropTarget.Tag = null;
-            _lastDropTarget = null;
-        }
-    }
-
     private static string? PromptInput(string title, string message, string defaultValue = "")
     {
         var dialog = new Window
@@ -923,399 +917,116 @@ public partial class MainWindow : Window
         LogTextBox.AppendText(line + Environment.NewLine);
         LogTextBox.ScrollToEnd();
     }
-}
 
-public sealed class TreeDepthToMarginConverter : IValueConverter
-{
-    private const double IndentSize = 20.0;
-
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    private void UpdateTaskEditorState(TaskDefinitionNode? selected)
     {
-        if (value is DependencyObject item)
+        var isTask = selected?.NodeType == TaskDefinitionNodeType.Task;
+        UpdateSelectedTaskButton.IsEnabled = isTask;
+        if (isTask)
         {
-            int depth = 0;
-            var parent = ItemsControl.ItemsControlFromItemContainer(item);
-            while (parent is TreeViewItem)
-            {
-                depth++;
-                parent = ItemsControl.ItemsControlFromItemContainer(parent);
-            }
-            return new Thickness(depth * IndentSize, 0, 0, 0);
-        }
-        return new Thickness(0);
-    }
-
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        => throw new NotSupportedException();
-}
-
-public sealed class StringToBrushConverter : IValueConverter
-{
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        if (value is string hex)
-            return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
-        return Brushes.Gray;
-    }
-
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        => throw new NotSupportedException();
-}
-
-public enum ExplorerNodeType
-{
-    Group,
-    Machine
-}
-
-public enum GroupKind { Normal, Default, Discovery, AgentInstalled }
-
-public sealed class ExplorerNode : INotifyPropertyChanged
-{
-    private string _name = string.Empty;
-
-    public required ExplorerNodeType NodeType { get; init; }
-
-    public required string Name
-    {
-        get => _name;
-        set
-        {
-            if (_name == value) return;
-            _name = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(PrimaryText));
+            LoadTaskSteps(selected!.TaskDefinition);
         }
     }
 
-    public bool IsBuiltIn { get; init; }
-    public GroupKind GroupKind { get; init; }
-    public bool HasAgent { get; set; }
-    public string IpAddress { get; init; } = string.Empty;
-    public string OperatingSystem { get; init; } = string.Empty;
-    public string Status { get; init; } = string.Empty;
-    public ObservableCollection<ExplorerNode> Children { get; } = [];
-    private bool _isExpanded;
-    public bool IsExpanded
+    private string BuildTaskDefinitionFromSteps()
     {
-        get => _isExpanded;
-        set
-        {
-            if (_isExpanded == value) return;
-            _isExpanded = value;
-            OnPropertyChanged();
-        }
+        return string.Join(Environment.NewLine, _taskSteps).Trim();
     }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
-    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-
-    public string IconGlyph => NodeType switch
+    private void LoadTaskSteps(string taskDefinition)
     {
-        ExplorerNodeType.Group when GroupKind == GroupKind.Discovery => "\uE968",
-        ExplorerNodeType.Group when GroupKind == GroupKind.AgentInstalled => "\uE73E",
-        ExplorerNodeType.Group => "\uE8D5",
-        _ => "\uE7F4"
-    };
+        _taskSteps.Clear();
+        foreach (var line in SplitLines(taskDefinition))
+            _taskSteps.Add(line);
 
-    public string IconColor => NodeType switch
-    {
-        ExplorerNodeType.Group when GroupKind == GroupKind.Discovery => "#7B68EE",
-        ExplorerNodeType.Group when GroupKind == GroupKind.AgentInstalled => "#4CAF50",
-        ExplorerNodeType.Group => "#DCB67A",
-        _ => "#5B9BD5"
-    };
-
-    public string PrimaryText => Name;
-    public string SecondaryText => NodeType switch
-    {
-        ExplorerNodeType.Group when GroupKind == GroupKind.Discovery => "自動探索",
-        ExplorerNodeType.Group when GroupKind == GroupKind.AgentInstalled => "展開済み",
-        ExplorerNodeType.Group when IsBuiltIn => "既定",
-        ExplorerNodeType.Group => "Group",
-        _ => $"{IpAddress}  |  {Status}"
-    };
-
-    public ExplorerNode DeepClone(string? nameOverride = null)
-    {
-        var clone = new ExplorerNode
-        {
-            NodeType = NodeType,
-            Name = nameOverride ?? Name,
-            GroupKind = GroupKind,
-            IpAddress = IpAddress,
-            OperatingSystem = OperatingSystem,
-            Status = Status,
-            IsExpanded = IsExpanded
-        };
-        foreach (var child in Children)
-            clone.Children.Add(child.DeepClone());
-        return clone;
+        SyncTaskDefinitionFromSteps();
     }
 
-    public static ExplorerNode CreateDiscoveryGroup() =>
-        new()
-        {
-            NodeType = ExplorerNodeType.Group,
-            Name = "ネットワーク探索",
-            IsBuiltIn = true,
-            GroupKind = GroupKind.Discovery
-        };
-
-    public static ExplorerNode CreateDefaultGroup() =>
-        new()
-        {
-            NodeType = ExplorerNodeType.Group,
-            Name = "未分類",
-            IsBuiltIn = true,
-            GroupKind = GroupKind.Default,
-            IsExpanded = true
-        };
-
-    public static ExplorerNode CreateAgentInstalledGroup() =>
-        new()
-        {
-            NodeType = ExplorerNodeType.Group,
-            Name = "エージェント展開済み",
-            IsBuiltIn = true,
-            GroupKind = GroupKind.AgentInstalled,
-            IsExpanded = false
-        };
-
-    public static ExplorerNode CreateGroup(string name) =>
-        new()
-        {
-            NodeType = ExplorerNodeType.Group,
-            Name = name
-        };
-
-    public static ExplorerNode CreateMachine(string name, string ipAddress, string operatingSystem, string status) =>
-        new()
-        {
-            NodeType = ExplorerNodeType.Machine,
-            Name = name,
-            IpAddress = ipAddress,
-            OperatingSystem = operatingSystem,
-            Status = status
-        };
-}
-
-public enum TaskDefinitionNodeType
-{
-    Group,
-    Command,
-    FileDistribution
-}
-
-public sealed class TaskDefinitionNode : INotifyPropertyChanged
-{
-    private string _name = string.Empty;
-
-    public required TaskDefinitionNodeType NodeType { get; init; }
-
-    public required string Name
+    private void SyncTaskDefinitionFromSteps()
     {
-        get => _name;
-        set
-        {
-            if (_name == value) return;
-            _name = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(PrimaryText));
-        }
+        UpdateTaskStepButtonsState();
     }
 
-    public bool IsBuiltIn { get; init; }
-    public string CommandOrPath { get; init; } = string.Empty;
-    public ObservableCollection<TaskDefinitionNode> Children { get; } = [];
-    private bool _isExpanded;
-    public bool IsExpanded
+    private static List<string> SplitLines(string input)
     {
-        get => _isExpanded;
-        set
-        {
-            if (_isExpanded == value) return;
-            _isExpanded = value;
-            OnPropertyChanged();
-        }
+        return input
+            .Replace("\r\n", "\n")
+            .Split('\n')
+            .Select(x => x.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
     }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
-    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-
-    public string IconGlyph => NodeType switch
+    private void UpdateTaskStepButtonsState()
     {
-        TaskDefinitionNodeType.Group => "\uE8D5",
-        TaskDefinitionNodeType.Command => "\uE756",
-        TaskDefinitionNodeType.FileDistribution => "\uE8C3",
-        _ => "\uE9CE"
-    };
-
-    public string IconColor => NodeType switch
-    {
-        TaskDefinitionNodeType.Group => "#DCB67A",
-        TaskDefinitionNodeType.Command => "#5B9BD5",
-        TaskDefinitionNodeType.FileDistribution => "#7B68EE",
-        _ => "#999999"
-    };
-
-    public string PrimaryText => Name;
-    public string SecondaryText => NodeType switch
-    {
-        TaskDefinitionNodeType.Group => "Task Group",
-        TaskDefinitionNodeType.Command => CommandOrPath,
-        TaskDefinitionNodeType.FileDistribution => CommandOrPath,
-        _ => string.Empty
-    };
-
-    public TaskDefinitionNode DeepClone(string? nameOverride = null)
-    {
-        var clone = new TaskDefinitionNode
-        {
-            NodeType = NodeType,
-            Name = nameOverride ?? Name,
-            IsBuiltIn = false,
-            CommandOrPath = CommandOrPath,
-            IsExpanded = IsExpanded
-        };
-
-        foreach (var child in Children)
-            clone.Children.Add(child.DeepClone());
-
-        return clone;
+        var idx = TaskStepListBox.SelectedIndex;
+        MoveTaskStepUpButton.IsEnabled = idx > 0;
+        MoveTaskStepDownButton.IsEnabled = idx >= 0 && idx < _taskSteps.Count - 1;
+        RemoveTaskStepButton.IsEnabled = idx >= 0;
     }
 
-    public static TaskDefinitionNode CreateRootGroup() =>
-        new()
-        {
-            NodeType = TaskDefinitionNodeType.Group,
-            Name = "タスク定義",
-            IsBuiltIn = true,
-            IsExpanded = true
-        };
-
-    public static TaskDefinitionNode CreateGroup(string name) =>
-        new()
-        {
-            NodeType = TaskDefinitionNodeType.Group,
-            Name = name
-        };
-
-    public static TaskDefinitionNode CreateCommandTask(string name, string command) =>
-        new()
-        {
-            NodeType = TaskDefinitionNodeType.Command,
-            Name = name,
-            CommandOrPath = command
-        };
-
-    public static TaskDefinitionNode CreateFileTask(string name, string path) =>
-        new()
-        {
-            NodeType = TaskDefinitionNodeType.FileDistribution,
-            Name = name,
-            CommandOrPath = path
-        };
-}
-
-public enum TaskStatus
-{
-    Pending,
-    Running,
-    Completed,
-    Failed
-}
-
-public class TaskItem : INotifyPropertyChanged
-{
-    private TaskStatus _status = TaskStatus.Pending;
-    private DateTime? _finishedAt;
-
-    public TaskItem(string taskType, string targetHost, string targetIp)
+    private int GetTaskStepDropIndex(Point point)
     {
-        TaskType = taskType;
-        TargetHost = targetHost;
-        TargetIp = targetIp;
-        CreatedAt = DateTime.Now;
+        var hit = TaskStepListBox.InputHitTest(point) as DependencyObject;
+        while (hit != null && hit is not ListBoxItem)
+            hit = VisualTreeHelper.GetParent(hit);
+
+        if (hit is ListBoxItem item)
+            return TaskStepListBox.ItemContainerGenerator.IndexFromContainer(item);
+
+        return -1;
     }
 
-    public string TaskType { get; }
-    public string TargetHost { get; }
-    public string TargetIp { get; }
-    public DateTime CreatedAt { get; }
-
-    public DateTime? FinishedAt
+    private int GetTaskStepInsertIndex(Point point)
     {
-        get => _finishedAt;
-        set { _finishedAt = value; OnPropertyChanged(); OnPropertyChanged(nameof(Elapsed)); }
+        if (!TryGetTaskStepDropTarget(point, out var item, out var insertAfter))
+            return -1;
+
+        var index = TaskStepListBox.ItemContainerGenerator.IndexFromContainer(item);
+        return insertAfter ? index + 1 : index;
     }
 
-    public TaskStatus Status
+    private bool TryGetTaskStepDropTarget(Point point, out ListBoxItem targetItem, out bool insertAfter)
     {
-        get => _status;
-        set
-        {
-            if (_status == value) return;
-            _status = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(StatusLabel));
-            OnPropertyChanged(nameof(StatusColor));
-            OnPropertyChanged(nameof(StatusIcon));
-            OnPropertyChanged(nameof(StatusBadgeBg));
-            OnPropertyChanged(nameof(Elapsed));
-        }
+        insertAfter = false;
+        targetItem = null!;
+
+        var hit = TaskStepListBox.InputHitTest(point) as DependencyObject;
+        while (hit != null && hit is not ListBoxItem)
+            hit = VisualTreeHelper.GetParent(hit);
+
+        if (hit is not ListBoxItem item)
+            return false;
+
+        var itemTopLeft = item.TranslatePoint(new Point(0, 0), TaskStepListBox);
+        var midpoint = itemTopLeft.Y + (item.ActualHeight / 2);
+        insertAfter = point.Y > midpoint;
+        targetItem = item;
+        return true;
     }
 
-    public string StatusLabel => Status switch
+    private void SetTaskStepDropIndicator(ListBoxItem targetItem, bool insertAfter)
     {
-        TaskStatus.Pending => "待機中",
-        TaskStatus.Running => "実行中...",
-        TaskStatus.Completed => "完了",
-        TaskStatus.Failed => "失敗",
-        _ => "不明"
-    };
+        if (_lastTaskStepDropTarget != null && _lastTaskStepDropTarget != targetItem)
+            _lastTaskStepDropTarget.Tag = null;
 
-    public string StatusColor => Status switch
-    {
-        TaskStatus.Running => "#2196F3",
-        TaskStatus.Completed => "#4CAF50",
-        TaskStatus.Failed => "#F44336",
-        _ => "#999999"
-    };
-
-    public string StatusIcon => Status switch
-    {
-        TaskStatus.Pending => "\uE823",
-        TaskStatus.Running => "\uE895",
-        TaskStatus.Completed => "\uE73E",
-        TaskStatus.Failed => "\uE711",
-        _ => "\uE9CE"
-    };
-
-    public string StatusBadgeBg => Status switch
-    {
-        TaskStatus.Running => "#E3F2FD",
-        TaskStatus.Completed => "#E8F5E9",
-        TaskStatus.Failed => "#FFEBEE",
-        _ => "#F5F5F5"
-    };
-
-    public string TypeIcon => TaskType.Contains("展開") ? "\uE896" : "\uE704";
-
-    public string Elapsed
-    {
-        get
-        {
-            var end = FinishedAt ?? DateTime.Now;
-            var span = end - CreatedAt;
-            var totalMinutes = (int)span.TotalMinutes;
-            return totalMinutes >= 1 ? $"{totalMinutes}分{span.Seconds}秒" : $"{span.TotalSeconds:F0}秒";
-        }
+        targetItem.Tag = insertAfter ? "InsertBelow" : "InsertAbove";
+        _lastTaskStepDropTarget = targetItem;
     }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
-    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    private void ClearTaskStepDropIndicator()
+    {
+        if (_lastTaskStepDropTarget == null) return;
+        _lastTaskStepDropTarget.Tag = null;
+        _lastTaskStepDropTarget = null;
+    }
+
+    private static string CombineDestinationPath(string destinationRoot, string fileName)
+    {
+        var trimmed = destinationRoot.Trim();
+        if (trimmed.EndsWith("\\") || trimmed.EndsWith("/"))
+            return trimmed + fileName;
+
+        return $"{trimmed}\\{fileName}";
+    }
 }
