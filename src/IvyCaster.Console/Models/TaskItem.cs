@@ -105,6 +105,11 @@ public class TaskItem : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    public void RefreshElapsed()
+    {
+        OnPropertyChanged(nameof(Elapsed));
+    }
+
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

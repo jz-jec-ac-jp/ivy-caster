@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     private bool _isTaskStepDragging;
     private TreeViewItem? _lastDropTarget;
     private ListBoxItem? _lastTaskStepDropTarget;
+    private readonly DispatcherTimer _elapsedRefreshTimer;
 
     public MainWindow()
     {
@@ -43,6 +44,9 @@ public partial class MainWindow : Window
         TaskStepListBox.ItemsSource = _taskSteps;
         UpdateTaskStepButtonsState();
         TaskListView.Sorting += TaskListView_Sorting;
+        _elapsedRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _elapsedRefreshTimer.Tick += (_, _) => RefreshRunningTaskElapsed();
+        _elapsedRefreshTimer.Start();
         WriteLog("コンソール起動");
     }
 
@@ -963,6 +967,15 @@ public partial class MainWindow : Window
         MoveTaskStepUpButton.IsEnabled = idx > 0;
         MoveTaskStepDownButton.IsEnabled = idx >= 0 && idx < _taskSteps.Count - 1;
         RemoveTaskStepButton.IsEnabled = idx >= 0;
+    }
+
+    private void RefreshRunningTaskElapsed()
+    {
+        foreach (var task in _taskQueue)
+        {
+            if (task.Status == TaskStatus.Running)
+                task.RefreshElapsed();
+        }
     }
 
     private int GetTaskStepDropIndex(Point point)
