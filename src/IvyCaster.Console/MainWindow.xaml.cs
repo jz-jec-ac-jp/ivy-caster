@@ -464,6 +464,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        var parent = FindParentGroup(selected);
+        if (parent?.GroupKind is GroupKind.Discovery or GroupKind.AgentInstalled)
+        {
+            StatusTextBlock.Text = "このグループ配下のノードは複製できません";
+            WriteLog($"複製拒否: 保護グループ配下 {selected.Name}");
+            return;
+        }
+
         if (selected.IsBuiltIn)
         {
             StatusTextBlock.Text = "既定グループは複製できません";
@@ -474,7 +482,6 @@ public partial class MainWindow : Window
         var suffix = selected.NodeType == ExplorerNodeType.Group ? " (コピー)" : "";
         var clone = selected.DeepClone(selected.Name + suffix);
 
-        var parent = FindParentGroup(selected);
         if (parent != null)
         {
             var idx = parent.Children.IndexOf(selected);
@@ -524,6 +531,14 @@ public partial class MainWindow : Window
         if (GetSelectedNode() is not { } selected)
         {
             StatusTextBlock.Text = "削除対象が未選択です";
+            return;
+        }
+
+        var parent = FindParentGroup(selected);
+        if (parent?.GroupKind is GroupKind.Discovery or GroupKind.AgentInstalled)
+        {
+            StatusTextBlock.Text = "このグループ配下のノードは削除できません";
+            WriteLog($"削除拒否: 保護グループ配下 {selected.Name}");
             return;
         }
 
