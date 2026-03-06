@@ -579,7 +579,7 @@ public partial class MainWindow : Window
 
     private void DeployAgentButton_OnClick(object sender, RoutedEventArgs e)
     {
-        var targets = GetSelectedMachineTargets();
+        var targets = GetSelectedMachineTargets(excludeAgentInstalledMirrors: true);
         if (targets.Count == 0)
         {
             StatusTextBlock.Text = "展開対象が未選択です";
@@ -713,15 +713,25 @@ public partial class MainWindow : Window
         SelectedPcTextBlock.Text = $"選択中グループ: {selected.Name} ({count} 台)";
     }
 
-    private List<ExplorerNode> GetSelectedMachineTargets()
+    private List<ExplorerNode> GetSelectedMachineTargets(bool excludeAgentInstalledMirrors = false)
     {
         if (GetSelectedNode() is not { } selected)
             return [];
 
         if (selected.NodeType == ExplorerNodeType.Machine)
+        {
+            if (excludeAgentInstalledMirrors && FindParentGroup(selected)?.GroupKind == GroupKind.AgentInstalled)
+                return [];
             return [selected];
+        }
 
-        return CollectMachines(selected);
+        var machines = CollectMachines(selected);
+        if (!excludeAgentInstalledMirrors)
+            return machines;
+
+        return machines
+            .Where(m => FindParentGroup(m)?.GroupKind != GroupKind.AgentInstalled)
+            .ToList();
     }
 
     private static List<ExplorerNode> CollectMachines(ExplorerNode group)
