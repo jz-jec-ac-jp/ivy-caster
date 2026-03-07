@@ -3,95 +3,576 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:IvyCaster.Console"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         mc:Ignorable="d"
         Title="ivy-caster Console"
-        Height="560"
+        Height="640"
         Width="980"
-        MinHeight="500"
-        MinWidth="900">
-    <Grid Margin="16">
+        MinHeight="560"
+        MinWidth="900"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles/MainWindow.Resources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="170" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="260" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="270" />
         </Grid.ColumnDefinitions>
 
-        <TextBlock Grid.Row="0"
-                   Grid.Column="0"
-                   Grid.ColumnSpan="2"
-                   Margin="0,0,0,12"
-                   FontSize="22"
-                   FontWeight="SemiBold"
-                   Text="ivy-caster / 管理コンソール" />
+        <Menu Grid.Row="0"
+              Grid.Column="0"
+              Grid.ColumnSpan="2">
+            <MenuItem Header="ファイル">
+                <MenuItem Header="グループの追加" Click="AddGroupButton_OnClick" />
+                <MenuItem Header="マシンの追加" Click="AddMachineButton_OnClick" />
+                <Separator />
+                <MenuItem Header="終了" Click="ExitMenuItem_OnClick" />
+            </MenuItem>
+            <MenuItem Header="編集">
+                <MenuItem Header="再検索" Click="DiscoverPcButton_OnClick" />
+                <Separator />
+                <MenuItem Header="名前の変更" Click="RenameNodeButton_OnClick" />
+                <MenuItem Header="選択ノードを複製" Click="DuplicateNodeButton_OnClick" />
+                <MenuItem Header="選択ノードを削除" Click="RemoveNodeButton_OnClick" />
+                <Separator />
+                <MenuItem Header="すべて折りたたむ" Click="CollapseAllButton_OnClick" />
+            </MenuItem>
+            <MenuItem Header="ヘルプ">
+                <MenuItem Header="バージョン情報" Click="AboutMenuItem_OnClick" />
+            </MenuItem>
+        </Menu>
 
-        <GroupBox Grid.Row="1"
-                  Grid.Column="0"
-                  Header="管理対象PC"
-                  Margin="0,0,12,12">
-            <DataGrid x:Name="PcDataGrid"
-                      Margin="8"
-                      AutoGenerateColumns="False"
-                      CanUserAddRows="False"
-                      IsReadOnly="True"
-                      SelectionMode="Single"
-                      SelectionChanged="PcDataGrid_OnSelectionChanged">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="ホスト名" Width="2*" Binding="{Binding HostName}" />
-                    <DataGridTextColumn Header="IP" Width="*" Binding="{Binding IpAddress}" />
-                    <DataGridTextColumn Header="OS" Width="*" Binding="{Binding OperatingSystem}" />
-                    <DataGridTextColumn Header="状態" Width="*" Binding="{Binding Status}" />
-                </DataGrid.Columns>
-            </DataGrid>
-        </GroupBox>
+        <TabControl Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="4,2,4,4">
+            <TabItem Header="コンピューター管理">
+                <Grid Margin="4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="260" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-        <GroupBox Grid.Row="1"
-                  Grid.Column="1"
-                  Header="操作"
-                  Margin="0,0,0,12">
-            <StackPanel Margin="8">
-                <Button Height="34"
-                        Margin="0,0,0,8"
-                        Content="PCを再検索"
-                        Click="DiscoverPcButton_OnClick" />
-                <Button Height="34"
-                        Margin="0,0,0,8"
-                        Content="エージェント初回展開（WMI）"
-                        Click="DeployAgentButton_OnClick" />
-                <Button Height="34"
-                        Margin="0,0,0,8"
-                        Content="疎通確認"
-                        Click="HeartbeatButton_OnClick" />
-                <Separator Margin="0,8,0,8" />
-                <TextBlock x:Name="SelectedPcTextBlock"
-                           Text="選択中: なし"
-                           TextWrapping="Wrap" />
-            </StackPanel>
-        </GroupBox>
+                    <Border Grid.Column="0"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,0,1,0"
+                            Padding="10,12,10,12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
 
-        <GroupBox Grid.Row="2"
-                  Grid.Column="0"
-                  Grid.ColumnSpan="2"
-                  Header="実行ログ"
-                  Margin="0,0,0,12">
-            <TextBox x:Name="LogTextBox"
-                     Margin="8"
-                     IsReadOnly="True"
-                     VerticalScrollBarVisibility="Auto"
-                     TextWrapping="Wrap"
-                     AcceptsReturn="True" />
-        </GroupBox>
+                            <TextBlock FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Opacity="0.8"
+                                       Text="EXPLORER" />
 
-        <StatusBar Grid.Row="3"
-                   Grid.Column="0"
-                   Grid.ColumnSpan="2">
-            <StatusBarItem>
-                <TextBlock x:Name="StatusTextBlock" Text="Ready" />
-            </StatusBarItem>
-        </StatusBar>
+                            <Border Grid.Row="1"
+                                    Margin="0,0,0,8"
+                                    Padding="6"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="6">
+                                <TextBlock x:Name="ExplorerHintTextBlock"
+                                           FontSize="11"
+                                           Opacity="0.7"
+                                           Text="右クリックで操作メニューを表示" />
+                            </Border>
+
+                            <TreeView Grid.Row="2"
+                                      x:Name="MachineTreeView"
+                                      BorderThickness="0"
+                                      Background="Transparent"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                      AllowDrop="True"
+                                      PreviewMouseRightButtonDown="MachineTreeView_OnPreviewMouseRightButtonDown"
+                                      PreviewMouseLeftButtonDown="TreeView_PreviewMouseLeftButtonDown"
+                                      PreviewMouseMove="TreeView_PreviewMouseMove"
+                                      DragOver="TreeView_DragOver"
+                                      Drop="TreeView_Drop"
+                                      DragLeave="TreeView_DragLeave"
+                                      SelectedItemChanged="MachineTreeView_OnSelectedItemChanged">
+                                <TreeView.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="グループ追加" Click="AddGroupButton_OnClick" />
+                                        <MenuItem Header="マシン追加" Click="AddMachineButton_OnClick" />
+                                        <Separator />
+                                        <MenuItem Header="名前の変更" Click="RenameNodeButton_OnClick" />
+                                        <MenuItem Header="複製" Click="DuplicateNodeButton_OnClick" />
+                                        <MenuItem Header="削除" Click="RemoveNodeButton_OnClick" />
+                                        <Separator />
+                                        <MenuItem Header="すべて折りたたむ" Click="CollapseAllButton_OnClick" />
+                                    </ContextMenu>
+                                </TreeView.ContextMenu>
+                            </TreeView>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Column="1" Margin="16,8,12,12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="170" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Margin="0,0,0,12"
+                                   FontSize="22"
+                                   FontWeight="SemiBold"
+                                   Text="Agent Deployment Dashboard" />
+
+                        <Border Grid.Row="1"
+                                Margin="0,0,0,12"
+                                Padding="10"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6">
+                            <DockPanel>
+                                <TextBlock x:Name="SelectedPcTextBlock"
+                                           Text="選択中: なし"
+                                           VerticalAlignment="Center" />
+                                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                                    <ui:Button Width="170"
+                                               Height="34"
+                                               Margin="0,0,8,0"
+                                               Content="エージェント初回展開（WMI）"
+                                               Click="DeployAgentButton_OnClick" />
+                                    <ui:Button Width="110"
+                                               Height="34"
+                                               Content="疎通確認"
+                                               Click="HeartbeatButton_OnClick" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <DockPanel Grid.Row="2" Margin="0,0,0,12">
+                            <TextBlock DockPanel.Dock="Top"
+                                       Margin="0,0,0,8"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource SecondaryTextBrush}"
+                                       Text="タスクキュー" />
+
+                            <DataGrid x:Name="TaskListView"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserReorderColumns="False"
+                                      CanUserResizeRows="False"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="None"
+                                      SelectionMode="Single"
+                                      BorderThickness="0"
+                                      Background="Transparent"
+                                      RowBackground="Transparent"
+                                      AlternatingRowBackground="#FAFAFA"
+                                      RowHeight="36"
+                                      ColumnHeaderHeight="32">
+
+                                <DataGrid.ColumnHeaderStyle>
+                                    <Style TargetType="DataGridColumnHeader">
+                                        <Setter Property="Background" Value="#F8F9FA" />
+                                        <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+                                        <Setter Property="FontSize" Value="12" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Setter Property="Padding" Value="10,0,6,0" />
+                                        <Setter Property="BorderBrush" Value="#E8E8E8" />
+                                        <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Left" />
+                                        <Setter Property="Cursor" Value="Hand" />
+                                    </Style>
+                                </DataGrid.ColumnHeaderStyle>
+
+                                <DataGrid.CellStyle>
+                                    <Style TargetType="DataGridCell">
+                                        <Setter Property="Padding" Value="10,0,6,0" />
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="DataGridCell">
+                                                    <Border Padding="{TemplateBinding Padding}"
+                                                            Background="{TemplateBinding Background}">
+                                                        <ContentPresenter VerticalAlignment="Center" />
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource SelectionBgBrush}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGrid.CellStyle>
+
+                                <DataGrid.RowStyle>
+                                    <Style TargetType="DataGridRow">
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource HoverBgBrush}" />
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource SelectionBgBrush}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGrid.RowStyle>
+
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="種別" Width="140" SortMemberPath="TaskType">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Border Width="22" Height="22"
+                                                            CornerRadius="5"
+                                                            Background="#F0F4FF"
+                                                            Margin="0,0,8,0">
+                                                        <TextBlock Text="{Binding TypeIcon}"
+                                                                   FontFamily="Segoe Fluent Icons"
+                                                                   FontSize="11"
+                                                                   Foreground="#5B7FFF"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding TaskType}"
+                                                               FontSize="12.5"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <DataGridTextColumn Header="対象ホスト" Width="140"
+                                                        Binding="{Binding TargetHost}">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="FontSize" Value="12.5" />
+                                                <Setter Property="VerticalAlignment" Value="Center" />
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+
+                                    <DataGridTextColumn Header="IP" Width="120"
+                                                        Binding="{Binding TargetIp}">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="FontSize" Value="12.5" />
+                                                <Setter Property="VerticalAlignment" Value="Center" />
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+
+                                    <DataGridTemplateColumn Header="状態" Width="100" SortMemberPath="Status">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border Padding="6,2"
+                                                        CornerRadius="8"
+                                                        Background="{Binding StatusBadgeBg, Converter={StaticResource StringToBrush}}"
+                                                        HorizontalAlignment="Left">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding StatusIcon}"
+                                                                   FontFamily="Segoe Fluent Icons"
+                                                                   FontSize="10"
+                                                                   Foreground="{Binding StatusColor, Converter={StaticResource StringToBrush}}"
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="0,0,4,0" />
+                                                        <TextBlock Text="{Binding StatusLabel}"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{Binding StatusColor, Converter={StaticResource StringToBrush}}"
+                                                                   VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <DataGridTextColumn Header="経過" Width="70"
+                                                        Binding="{Binding Elapsed}">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="FontSize" Value="12" />
+                                                <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+                                                <Setter Property="VerticalAlignment" Value="Center" />
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+
+                                    <DataGridTextColumn Header="開始" Width="80"
+                                                        Binding="{Binding CreatedAt, StringFormat='{}{0:HH:mm:ss}'}"
+                                                        SortMemberPath="CreatedAt">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="FontSize" Value="12" />
+                                                <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+                                                <Setter Property="VerticalAlignment" Value="Center" />
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+
+                        <GroupBox Grid.Row="3"
+                                  Header="実行ログ"
+                                  Margin="0,0,0,12">
+                            <TextBox x:Name="LogTextBox"
+                                     Margin="8"
+                                     IsReadOnly="True"
+                                     VerticalScrollBarVisibility="Auto"
+                                     TextWrapping="Wrap"
+                                     AcceptsReturn="True" />
+                        </GroupBox>
+
+                        <StatusBar Grid.Row="4">
+                            <StatusBarItem>
+                                <TextBlock x:Name="StatusTextBlock" Text="Ready" />
+                            </StatusBarItem>
+                        </StatusBar>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="タスク">
+                <Grid Margin="4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="260" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0"
+                               Grid.ColumnSpan="2"
+                               Margin="0,0,0,10"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Text="タスク管理" />
+
+                    <Border Grid.Row="1"
+                            Grid.Column="0"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,0,1,0"
+                            Padding="10,8,10,8">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Opacity="0.8"
+                                       Text="TASK EXPLORER" />
+
+                            <TreeView Grid.Row="1"
+                                      x:Name="TaskExplorerTreeView"
+                                      Margin="0,8,0,0"
+                                      AllowDrop="True"
+                                      PreviewMouseRightButtonDown="TaskExplorerTreeView_OnPreviewMouseRightButtonDown"
+                                      PreviewMouseLeftButtonDown="TaskExplorerTreeView_OnPreviewMouseLeftButtonDown"
+                                      PreviewMouseMove="TaskExplorerTreeView_OnPreviewMouseMove"
+                                      DragOver="TaskExplorerTreeView_OnDragOver"
+                                      Drop="TaskExplorerTreeView_OnDrop"
+                                      DragLeave="TaskExplorerTreeView_OnDragLeave"
+                                      SelectedItemChanged="TaskExplorerTreeView_OnSelectedItemChanged">
+                                <TreeView.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="タスクグループ追加" Click="AddTaskGroupButton_OnClick" />
+                                        <MenuItem Header="タスク追加" Click="CreateTaskButton_OnClick" />
+                                        <Separator />
+                                        <MenuItem Header="名前の変更" Click="RenameTaskNodeButton_OnClick" />
+                                        <MenuItem Header="複製" Click="DuplicateTaskNodeButton_OnClick" />
+                                        <MenuItem Header="削除" Click="RemoveTaskNodeButton_OnClick" />
+                                    </ContextMenu>
+                                </TreeView.ContextMenu>
+                            </TreeView>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1" Grid.Column="1" Margin="16,0,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <GroupBox Grid.Row="0"
+                                  Header="タスク編集"
+                                  Margin="0,0,0,10">
+                            <Grid Margin="10">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <Grid Grid.Row="0" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TaskCommandBatchInputTextBox"
+                                             Height="56"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             VerticalScrollBarVisibility="Auto"
+                                             VerticalContentAlignment="Top" />
+                                    <ui:Button Grid.Column="1"
+                                               Margin="8,0,0,0"
+                                               Width="140"
+                                               Height="34"
+                                               Content="コマンド追加"
+                                               Click="AddTaskCommandsButton_OnClick" />
+                                </Grid>
+
+                                <Grid Grid.Row="1" Margin="0,0,0,8">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"
+                                                   Text="配信先" />
+                                        <TextBox x:Name="TaskFileDestinationTextBox"
+                                                 Width="260"
+                                                 Height="34"
+                                                 VerticalContentAlignment="Center"
+                                                 Text="C:\temp\deploy\" />
+                                        <ui:Button Width="140"
+                                                   Margin="8,0,0,0"
+                                                   Height="34"
+                                                   Content="配信ファイル選択"
+                                                   Click="AddTaskFilesButton_OnClick" />
+                                    </StackPanel>
+                                    <DockPanel Grid.Row="1">
+                                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                                            <ui:Button x:Name="MoveTaskStepUpButton"
+                                                       Width="90"
+                                                       Height="34"
+                                                       Content="上へ"
+                                                       Click="MoveTaskStepUpButton_OnClick" />
+                                            <ui:Button x:Name="MoveTaskStepDownButton"
+                                                       Margin="8,0,0,0"
+                                                       Width="90"
+                                                       Height="34"
+                                                       Content="下へ"
+                                                       Click="MoveTaskStepDownButton_OnClick" />
+                                            <ui:Button x:Name="RemoveTaskStepButton"
+                                                       Margin="8,0,0,0"
+                                                       Width="90"
+                                                       Height="34"
+                                                       Content="削除"
+                                                       Click="RemoveTaskStepButton_OnClick" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Grid>
+
+                                <ListBox Grid.Row="2"
+                                         x:Name="TaskStepListBox"
+                                         AllowDrop="True"
+                                         PreviewMouseLeftButtonDown="TaskStepListBox_OnPreviewMouseLeftButtonDown"
+                                         PreviewMouseMove="TaskStepListBox_OnPreviewMouseMove"
+                                         DragOver="TaskStepListBox_OnDragOver"
+                                         Drop="TaskStepListBox_OnDrop"
+                                         DragLeave="TaskStepListBox_OnDragLeave"
+                                         SelectionChanged="TaskStepListBox_OnSelectionChanged">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Padding" Value="10,6" />
+                                            <Setter Property="Margin" Value="0,1" />
+                                            <Setter Property="Background" Value="Transparent" />
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <Grid>
+                                                            <Border x:Name="RowBorder"
+                                                                    Padding="{TemplateBinding Padding}"
+                                                                    BorderBrush="Transparent"
+                                                                    BorderThickness="0"
+                                                                    Background="{TemplateBinding Background}">
+                                                                <ContentPresenter />
+                                                            </Border>
+                                                            <Border x:Name="InsertAboveLine"
+                                                                    Height="2"
+                                                                    VerticalAlignment="Top"
+                                                                    Background="{StaticResource AccentBrush}"
+                                                                    Visibility="Collapsed" />
+                                                            <Border x:Name="InsertBelowLine"
+                                                                    Height="2"
+                                                                    VerticalAlignment="Bottom"
+                                                                    Background="{StaticResource AccentBrush}"
+                                                                    Visibility="Collapsed" />
+                                                        </Grid>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsSelected" Value="True">
+                                                                <Setter TargetName="RowBorder" Property="Background" Value="{StaticResource SelectionBgBrush}" />
+                                                            </Trigger>
+                                                            <Trigger Property="Tag" Value="InsertAbove">
+                                                                <Setter TargetName="InsertAboveLine" Property="Visibility" Value="Visible" />
+                                                            </Trigger>
+                                                            <Trigger Property="Tag" Value="InsertBelow">
+                                                                <Setter TargetName="InsertBelowLine" Property="Visibility" Value="Visible" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                </ListBox>
+
+                                <StackPanel Grid.Row="3"
+                                            Margin="0,8,0,0"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Right">
+                                    <ui:Button x:Name="UpdateSelectedTaskButton"
+                                               Width="120"
+                                               Height="34"
+                                               Content="保存"
+                                               IsEnabled="False"
+                                               Click="UpdateTaskButton_OnClick" />
+                                    <ui:Button x:Name="CancelTaskEditButton"
+                                               Margin="8,0,0,0"
+                                               Width="120"
+                                               Height="34"
+                                               Content="キャンセル"
+                                               Click="CancelTaskEditButton_OnClick" />
+                                </StackPanel>
+
+                            </Grid>
+                        </GroupBox>
+
+                        <Border Grid.Row="1"
+                                Margin="0,0,0,10"
+                                Padding="8"
+                                CornerRadius="6"
+                                BorderThickness="1"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                Background="#FCFCFC">
+                            <TextBlock Text="対象は『コンピューター管理』タブで選択したノードに対して実行します。"
+                                       Opacity="0.75" />
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </Window>
