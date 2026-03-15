@@ -49,6 +49,10 @@ public sealed class OperationElevationService : IPrivilegeElevationService
         {
             return new ElevationResult(false, true, "User cancelled elevation.");
         }
+        catch (OperationCanceledException)
+        {
+            return new ElevationResult(false, true, "Operation canceled.");
+        }
         catch (Exception ex)
         {
             return new ElevationResult(false, false, ex.Message);
