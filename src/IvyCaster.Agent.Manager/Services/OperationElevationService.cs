@@ -16,19 +16,20 @@ public sealed class OperationElevationService : IPrivilegeElevationService
             return new ElevationResult(false, false, "Operation name is required.");
         }
 
-        if (IsElevated())
-        {
-            return new ElevationResult(true, false, "Already elevated.");
-        }
-
-        var processPath = Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(processPath))
-        {
-            return new ElevationResult(false, false, "Current executable path is unavailable.");
-        }
-
         try
         {
+            if (IsElevated())
+            {
+                var operationResponse = await ExecuteOperationAsync(operationName, cancellationToken);
+                return new ElevationResult(operationResponse.Success, false, operationResponse.Message);
+            }
+
+            var processPath = Environment.ProcessPath;
+            if (string.IsNullOrWhiteSpace(processPath))
+            {
+                return new ElevationResult(false, false, "Current executable path is unavailable.");
+            }
+
             var startInfo = BuildElevationStartInfo(processPath, operationName);
             using var process = Process.Start(startInfo);
             if (process is null)
@@ -52,6 +53,19 @@ public sealed class OperationElevationService : IPrivilegeElevationService
         {
             return new ElevationResult(false, false, ex.Message);
         }
+    }
+
+    private static async Task<AgentManagementResponse> ExecuteOperationAsync(string operationName, CancellationToken cancellationToken)
+    {
+        var normalizedOperation = operationName.Trim().ToLowerInvariant();
+        var client = new AgentManagementClient();
+
+        return normalizedOperation switch
+        {
+            "stop" => await client.StopAsync(cancellationToken),
+            "restart" => await client.RestartAsync(cancellationToken),
+            _ => new AgentManagementResponse(false, $"Unsupported operation: {operationName}")
+        };
     }
 
     private static ProcessStartInfo BuildElevationStartInfo(string processPath, string operationName)
