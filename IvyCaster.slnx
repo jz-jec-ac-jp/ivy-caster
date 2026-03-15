@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/IvyCaster.Agent/IvyCaster.Agent.csproj" />
+    <Project Path="src/IvyCaster.Agent.Manager/IvyCaster.Agent.Manager.csproj" />
     <Project Path="src/IvyCaster.Console/IvyCaster.Console.csproj" />
     <Project Path="src/IvyCaster.Core/IvyCaster.Core.csproj" />
     <Project Path="src/IvyCaster.Infrastructure/IvyCaster.Infrastructure.csproj" />
