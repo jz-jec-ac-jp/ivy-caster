@@ -11,16 +11,16 @@ public sealed class OperationElevationService : IPrivilegeElevationService
 {
     public async Task<ElevationResult> ElevateAndExecuteAsync(string operationName, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(operationName))
+        if (!TryNormalizeSupportedOperation(operationName, out var normalizedOperation))
         {
-            return new ElevationResult(false, false, "Operation name is required.");
+            return new ElevationResult(false, false, "Unsupported operation. Supported operations: stop, restart.");
         }
 
         try
         {
             if (IsElevated())
             {
-                var operationResponse = await ExecuteOperationAsync(operationName, cancellationToken);
+                var operationResponse = await ExecuteOperationAsync(normalizedOperation, cancellationToken);
                 return new ElevationResult(operationResponse.Success, false, operationResponse.Message);
             }
 
@@ -30,7 +30,7 @@ public sealed class OperationElevationService : IPrivilegeElevationService
                 return new ElevationResult(false, false, "Current executable path is unavailable.");
             }
 
-            var startInfo = BuildElevationStartInfo(processPath, operationName);
+            var startInfo = BuildElevationStartInfo(processPath, normalizedOperation);
             using var process = Process.Start(startInfo);
             if (process is null)
             {
@@ -61,15 +61,32 @@ public sealed class OperationElevationService : IPrivilegeElevationService
 
     private static async Task<AgentManagementResponse> ExecuteOperationAsync(string operationName, CancellationToken cancellationToken)
     {
-        var normalizedOperation = operationName.Trim().ToLowerInvariant();
         var client = new AgentManagementClient();
 
-        return normalizedOperation switch
+        return operationName switch
         {
             "stop" => await client.StopAsync(cancellationToken),
             "restart" => await client.RestartAsync(cancellationToken),
             _ => new AgentManagementResponse(false, $"Unsupported operation: {operationName}")
         };
+    }
+
+    private static bool TryNormalizeSupportedOperation(string operationName, out string normalizedOperation)
+    {
+        normalizedOperation = string.Empty;
+        if (string.IsNullOrWhiteSpace(operationName))
+        {
+            return false;
+        }
+
+        var candidate = operationName.Trim().ToLowerInvariant();
+        if (candidate is not ("stop" or "restart"))
+        {
+            return false;
+        }
+
+        normalizedOperation = candidate;
+        return true;
     }
 
     private static ProcessStartInfo BuildElevationStartInfo(string processPath, string operationName)
