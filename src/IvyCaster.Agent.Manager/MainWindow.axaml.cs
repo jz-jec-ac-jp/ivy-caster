@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using IvyCaster.Agent.Manager.Messages;
 using IvyCaster.Agent.Manager.Services;
 using IvyCaster.Core;
+using System.Diagnostics;
 using System.Linq;
 
 namespace IvyCaster.Agent.Manager;
@@ -22,8 +23,16 @@ public partial class MainWindow : Window
         InitializeComponent();
         Opened += async (_, _) =>
         {
-            await RefreshStatusAsync();
-            await RefreshLogsAsync();
+            try
+            {
+                await RefreshStatusAsync();
+                await RefreshLogsAsync();
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError($"Failed to refresh initial window data: {ex}");
+                await ShowMessageAsync($"{TroubleshootingMessages.OperationFailedPrefix} {ex.Message}");
+            }
         };
     }
 
