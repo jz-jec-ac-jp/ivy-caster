@@ -27,29 +27,38 @@ jobs:
       - name: Send Notification to Discord
         if: steps.get_user_id.outputs.DISCORD_USER_ID != 'null'
         env:
-          # レビューコメントを安全なJSON文字列に変換して環境変数に格納
-          PR_BODY: ${{ toJSON(github.event.pull_request.body) }}
+          # GitHubコンテキスト由来の値を環境変数として受け取り、jqで安全にJSON化する
+          DISCORD_USER_ID: ${{ steps.get_user_id.outputs.DISCORD_USER_ID }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.review.html_url }}
+          REVIEWER_NAME: ${{ github.event.review.user.login }}
+          REVIEWER_AVATAR_URL: ${{ github.event.review.user.avatar_url }}
+          PR_BODY_SAFE: ${{ toJSON(github.event.pull_request.body) }}
         run: |
-          # レビュアーの名前を取得
-          REVIEWER_NAME="${{ github.event.review.user.login }}"
-          # 送信するJSONデータ（Embedオブジェクト）を組み立てます
-          cat <<EOF > payload.json
-          {
-            "content": "<@${{ steps.get_user_id.outputs.DISCORD_USER_ID }}> さん、プルリクエストに変更要求がありました。内容の確認をお願いします。",
-            "embeds": [
-              {
-                "title": "${{ github.event.pull_request.title }} (#${{ github.event.pull_request.number }})",
-                "url": "${{ github.event.review.html_url }}",
-                "description": ${PR_BODY},
-                "color": 15158332,
-                "author": {
-                  "name": "${REVIEWER_NAME}",
-                  "icon_url": "${{ github.event.review.user.avatar_url }}"
+          # jqを使って安全にJSONを構築する
+          jq -n \
+            --arg content "<@${DISCORD_USER_ID}> さん、プルリクエストに変更要求がありました。内容の確認をお願いします。" \
+            --arg title "${PR_TITLE} (#${PR_NUMBER})" \
+            --arg url "${PR_URL}" \
+            --arg reviewer_name "${REVIEWER_NAME}" \
+            --arg reviewer_avatar_url "${REVIEWER_AVATAR_URL}" \
+            --argjson description "${PR_BODY_SAFE}" \
+            '{
+              content: $content,
+              embeds: [
+                {
+                  title: $title,
+                  url: $url,
+                  description: $description,
+                  color: 15158332,
+                  author: {
+                    name: $reviewer_name,
+                    icon_url: $reviewer_avatar_url
+                  }
                 }
-              }
-            ]
-          }
-          EOF
+              ]
+            }' > payload.json
 
           # `curl`コマンドを使って、組み立てたJSONデータをファイルから読み込んで送信します
           curl -H "Content-Type: application/json" \
