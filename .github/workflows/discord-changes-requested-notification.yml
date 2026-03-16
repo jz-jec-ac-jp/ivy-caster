@@ -34,7 +34,8 @@ jobs:
           PR_URL: ${{ github.event.review.html_url }}
           REVIEWER_NAME: ${{ github.event.review.user.login }}
           REVIEWER_AVATAR_URL: ${{ github.event.review.user.avatar_url }}
-          PR_BODY_SAFE: ${{ toJSON(github.event.pull_request.body) }}
+          # descriptionは常にJSON文字列として扱う（null時は空文字）
+          PR_BODY_TEXT: ${{ github.event.pull_request.body || '' }}
         run: |
           # jqを使って安全にJSONを構築する
           jq -n \
@@ -43,7 +44,7 @@ jobs:
             --arg url "${PR_URL}" \
             --arg reviewer_name "${REVIEWER_NAME}" \
             --arg reviewer_avatar_url "${REVIEWER_AVATAR_URL}" \
-            --argjson description "${PR_BODY_SAFE}" \
+            --arg description "${PR_BODY_TEXT}" \
             '{
               content: $content,
               embeds: [
