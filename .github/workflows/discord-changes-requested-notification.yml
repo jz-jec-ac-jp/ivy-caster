@@ -10,7 +10,7 @@ on:
 jobs:
   notify:
     # 実行環境
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     # レビューが「変更要求」の場合のみジョブを実行
     if: github.event.review.state == 'changes_requested'
     steps:
