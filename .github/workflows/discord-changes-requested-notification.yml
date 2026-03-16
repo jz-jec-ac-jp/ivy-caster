@@ -1,0 +1,57 @@
+# ワークフローの名前
+name: Notify Changes Requested to Discord
+
+# ワークフローが実行されるタイミング
+on:
+  pull_request_review:
+    types: [submitted] # プルリクエストのレビューが提出された時
+
+# 実行される処理内容
+jobs:
+  notify:
+    # 実行環境
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    # レビューが「変更要求」の場合のみジョブを実行
+    if: github.event.review.state == 'changes_requested'
+    steps:
+      # ステップ1: PR作成者のGitHubユーザー名からDiscordユーザーIDを取得する
+      - name: Get Discord User ID
+        id: get_user_id
+        run: |
+          USER_MAP='${{ secrets.DISCORD_USER_MAP }}'
+          GITHUB_USERNAME='${{ github.event.pull_request.user.login }}'
+          DISCORD_USER_ID=$(echo "$USER_MAP" | jq -r ".[\"$GITHUB_USERNAME\"]")
+          echo "DISCORD_USER_ID=$DISCORD_USER_ID" >> $GITHUB_OUTPUT
+
+      # ステップ2: Discordに通知を送信する
+      - name: Send Notification to Discord
+        if: steps.get_user_id.outputs.DISCORD_USER_ID != 'null'
+        env:
+          # レビューコメントを安全なJSON文字列に変換して環境変数に格納
+          PR_BODY: ${{ toJSON(github.event.pull_request.body) }}
+        run: |
+          # レビュアーの名前を取得
+          REVIEWER_NAME="${{ github.event.review.user.login }}"
+          # 送信するJSONデータ（Embedオブジェクト）を組み立てます
+          cat <<EOF > payload.json
+          {
+            "content": "<@${{ steps.get_user_id.outputs.DISCORD_USER_ID }}> さん、プルリクエストに変更要求がありました。内容の確認をお願いします。",
+            "embeds": [
+              {
+                "title": "${{ github.event.pull_request.title }} (#${{ github.event.pull_request.number }})",
+                "url": "${{ github.event.review.html_url }}",
+                "description": ${PR_BODY},
+                "color": 15158332,
+                "author": {
+                  "name": "${REVIEWER_NAME}",
+                  "icon_url": "${{ github.event.review.user.avatar_url }}"
+                }
+              }
+            ]
+          }
+          EOF
+
+          # `curl`コマンドを使って、組み立てたJSONデータをファイルから読み込んで送信します
+          curl -H "Content-Type: application/json" \
+               -d @payload.json \
+               "${{ secrets.DISCORD_WEBHOOK_URL }}"
