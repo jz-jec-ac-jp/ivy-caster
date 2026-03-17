@@ -11,6 +11,8 @@ jobs:
   notify:
     # 実行環境
     runs-on: ubuntu-latest
+    # ユーザーへのレビュー依頼時のみ実行（team依頼はスキップ）
+    if: github.event.requested_reviewer != null
     steps:
       # ステップ1: GitHubユーザー名からDiscordユーザーIDを取得する
       - name: Get Discord User ID
