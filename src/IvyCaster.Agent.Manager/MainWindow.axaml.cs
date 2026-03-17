@@ -38,22 +38,54 @@ public partial class MainWindow : Window
 
     private async void RefreshStatus_OnClick(object? sender, RoutedEventArgs e)
     {
-        await RefreshStatusAsync();
+        try
+        {
+            await RefreshStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"Failed to refresh status: {ex}");
+            await ShowMessageAsync($"{TroubleshootingMessages.OperationFailedPrefix} {ex.Message}");
+        }
     }
 
     private async void RefreshLogs_OnClick(object? sender, RoutedEventArgs e)
     {
-        await RefreshLogsAsync();
+        try
+        {
+            await RefreshLogsAsync();
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"Failed to refresh logs: {ex}");
+            await ShowMessageAsync($"{TroubleshootingMessages.OperationFailedPrefix} {ex.Message}");
+        }
     }
 
     private async void StopAgent_OnClick(object? sender, RoutedEventArgs e)
     {
-        await ExecutePrivilegedOperationAsync("stop");
+        try
+        {
+            await ExecutePrivilegedOperationAsync("stop");
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"Failed to execute stop operation: {ex}");
+            await ShowMessageAsync($"{TroubleshootingMessages.OperationFailedPrefix} {ex.Message}");
+        }
     }
 
     private async void RestartAgent_OnClick(object? sender, RoutedEventArgs e)
     {
-        await ExecutePrivilegedOperationAsync("restart");
+        try
+        {
+            await ExecutePrivilegedOperationAsync("restart");
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"Failed to execute restart operation: {ex}");
+            await ShowMessageAsync($"{TroubleshootingMessages.OperationFailedPrefix} {ex.Message}");
+        }
     }
 
     private async Task RefreshStatusAsync()
