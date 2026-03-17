@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\IvyCaster.Core\IvyCaster.Core.csproj" />
+    <ProjectReference Include="..\..\src\IvyCaster.Agent\IvyCaster.Agent.csproj" />
+    <ProjectReference Include="..\..\src\IvyCaster.Agent.Manager\IvyCaster.Agent.Manager.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

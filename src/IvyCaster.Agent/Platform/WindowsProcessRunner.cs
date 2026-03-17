@@ -26,9 +26,7 @@ public sealed class WindowsProcessRunner : IProcessRunner
             {
                 var fullCommand = BuildFullCommand(request.Command, request.Arguments);
                 startInfo.FileName = "cmd.exe";
-                startInfo.ArgumentList.Add("/s");
-                startInfo.ArgumentList.Add("/c");
-                startInfo.ArgumentList.Add(WrapForCmd(fullCommand));
+                startInfo.Arguments = $"/s /c {WrapForCmd(fullCommand)}";
                 break;
             }
             case ShellKind.PowerShell:
