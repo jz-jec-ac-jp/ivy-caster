@@ -26,7 +26,9 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore IvyCaster.slnx
+        run: |
+          dotnet restore tests/IvyCaster.Core.Tests/IvyCaster.Core.Tests.csproj
+          dotnet restore tests/IvyCaster.Agent.Tests/IvyCaster.Agent.Tests.csproj
 
       - name: Test Core
         run: dotnet test tests/IvyCaster.Core.Tests/IvyCaster.Core.Tests.csproj --configuration Release --no-restore
