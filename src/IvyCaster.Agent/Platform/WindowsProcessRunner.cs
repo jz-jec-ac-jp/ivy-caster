@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.Text;
 using IvyCaster.Core;
 
@@ -6,6 +7,8 @@ namespace IvyCaster.Agent.Platform;
 
 public sealed class WindowsProcessRunner : IProcessRunner
 {
+    private const int CancellationExitWaitTimeoutMs = 5000;
+
     public async Task<CommandExecutionResult> ExecuteAsync(
         CommandExecutionRequest request,
         CancellationToken cancellationToken = default)
@@ -108,27 +111,38 @@ public sealed class WindowsProcessRunner : IProcessRunner
         {
             process.Kill(entireProcessTree: true);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or PlatformNotSupportedException)
+        catch (Exception ex) when (ex is InvalidOperationException
+            or NotSupportedException
+            or PlatformNotSupportedException
+            or Win32Exception
+            or AggregateException)
         {
             try
             {
                 process.Kill();
             }
-            catch (Exception killEx) when (killEx is InvalidOperationException or NotSupportedException)
+            catch (Exception killEx) when (killEx is InvalidOperationException
+                or NotSupportedException
+                or Win32Exception
+                or AggregateException)
             {
-                Trace.TraceWarning($"Failed to terminate process during cancellation: {killEx.Message}");
+                Trace.TraceWarning($"Failed to terminate process during cancellation: {killEx}");
             }
 
-            Trace.TraceWarning($"Failed to terminate process tree during cancellation: {ex.Message}");
+            Trace.TraceWarning($"Failed to terminate process tree during cancellation: {ex}");
         }
 
         try
         {
-            process.WaitForExit();
+            if (!process.WaitForExit(CancellationExitWaitTimeoutMs))
+            {
+                Trace.TraceWarning(
+                    $"Timed out waiting for process exit after cancellation. timeoutMs={CancellationExitWaitTimeoutMs}, processId={process.Id}");
+            }
         }
         catch (Exception ex) when (ex is InvalidOperationException)
         {
-            Trace.TraceWarning($"Failed while waiting for process exit after cancellation: {ex.Message}");
+            Trace.TraceWarning($"Failed while waiting for process exit after cancellation: {ex}");
         }
     }
 }
