@@ -99,6 +99,7 @@ public partial class MainWindow : Window
         }
 
         var status = response.Status;
+        var process = status.Process;
         StatusSummary.Text = $"状態: {status.State} | Host: {status.HostName}";
         StatusDetails.Text = string.Join(
             Environment.NewLine,
@@ -107,10 +108,10 @@ public partial class MainWindow : Window
                 $"Host: {status.HostName}",
                 $"State: {status.State}",
                 $"CheckedAtUtc: {status.CheckedAtUtc:O}",
-                $"ProcessId: {status.Process.ProcessId}",
-                $"ProcessName: {status.Process.ProcessName}",
-                $"StartedAtUtc: {status.Process.StartedAtUtc:O}",
-                $"LastHeartbeatUtc: {status.Process.LastHeartbeatUtc:O}"
+                $"ProcessId: {process?.ProcessId.ToString() ?? "N/A"}",
+                $"ProcessName: {process?.ProcessName ?? "N/A"}",
+                $"StartedAtUtc: {(process is null ? "N/A" : process.StartedAtUtc.ToString("O"))}",
+                $"LastHeartbeatUtc: {(process is null ? "N/A" : process.LastHeartbeatUtc.ToString("O"))}"
             ]);
     }
 
