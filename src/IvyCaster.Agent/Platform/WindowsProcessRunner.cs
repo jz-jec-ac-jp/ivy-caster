@@ -60,10 +60,19 @@ public sealed class WindowsProcessRunner : IProcessRunner
         using var process = new Process { StartInfo = startInfo };
         process.Start();
 
-        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
 
-        await process.WaitForExitAsync(cancellationToken);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            TerminateProcessTree(process);
+            await Task.WhenAll(outputTask, errorTask);
+            throw;
+        }
 
         var output = await outputTask;
         var error = await errorTask;
@@ -85,5 +94,35 @@ public sealed class WindowsProcessRunner : IProcessRunner
     {
         var escaped = command.Replace("\"", "\"\"");
         return $"\"{escaped}\"";
+    }
+
+    private static void TerminateProcessTree(Process process)
+    {
+        try
+        {
+            process.Kill(entireProcessTree: true);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or PlatformNotSupportedException)
+        {
+            try
+            {
+                process.Kill();
+            }
+            catch (Exception killEx) when (killEx is InvalidOperationException or NotSupportedException)
+            {
+                Trace.TraceWarning($"Failed to terminate process during cancellation: {killEx.Message}");
+            }
+
+            Trace.TraceWarning($"Failed to terminate process tree during cancellation: {ex.Message}");
+        }
+
+        try
+        {
+            process.WaitForExit();
+        }
+        catch (Exception ex) when (ex is InvalidOperationException)
+        {
+            Trace.TraceWarning($"Failed while waiting for process exit after cancellation: {ex.Message}");
+        }
     }
 }
