@@ -35,12 +35,17 @@ public sealed class WindowsAgentServiceController(
         {
             if (IsRunningAsWindowsService())
             {
-                var serviceName = ResolveServiceName();
-                if (string.IsNullOrWhiteSpace(serviceName))
+                string serviceName;
+                try
                 {
+                    serviceName = ResolveServiceName();
+                }
+                catch (InvalidOperationException ex)
+                {
+                    Trace.TraceError($"Restart aborted: {ex}");
                     return Task.FromResult(new ManagementOperationResult(
                         false,
-                        $"Restart failed: service name is unavailable. Set {ServiceNameEnv} or run in interactive mode."));
+                        ex.Message));
                 }
 
                 var helperStarted = StartServiceRestartHelper(serviceName);
@@ -105,8 +110,8 @@ public sealed class WindowsAgentServiceController(
             return configured;
         }
 
-        var processName = Process.GetCurrentProcess().ProcessName;
-        return processName;
+        throw new InvalidOperationException(
+            $"Service operation aborted: required environment variable {ServiceNameEnv} is not set.");
     }
 
     private static bool StartServiceRestartHelper(string serviceName)
