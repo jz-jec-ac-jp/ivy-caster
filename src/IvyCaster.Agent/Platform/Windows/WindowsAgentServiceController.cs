@@ -124,7 +124,7 @@ public sealed class WindowsAgentServiceController(
 
         var helperProcess = Process.Start(new ProcessStartInfo
         {
-            FileName = "powershell.exe",
+            FileName = GetWindowsPowerShellPath(),
             UseShellExecute = false,
             CreateNoWindow = true,
             ArgumentList =
@@ -140,5 +140,11 @@ public sealed class WindowsAgentServiceController(
         });
 
         return helperProcess is not null;
+    }
+
+    private static string GetWindowsPowerShellPath()
+    {
+        var windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        return Path.Combine(windowsDirectory, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
     }
 }
