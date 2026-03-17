@@ -28,12 +28,16 @@ if (OperatingSystem.IsWindows())
     builder.Services.AddSingleton<IAgentLogProvider, WindowsAgentLogProvider>();
     builder.Services.AddSingleton<IAgentProcessInspector, WindowsAgentProcessInspector>();
 }
-else
+else if (OperatingSystem.IsLinux())
 {
     builder.Services.AddSingleton<IProcessRunner, IvyCaster.Agent.Platform.Linux.LinuxProcessRunner>();
     builder.Services.AddSingleton<IAgentServiceController, IvyCaster.Agent.Platform.Linux.LinuxAgentServiceController>();
     builder.Services.AddSingleton<IAgentLogProvider, IvyCaster.Agent.Platform.Linux.LinuxAgentLogProvider>();
     builder.Services.AddSingleton<IAgentProcessInspector, IvyCaster.Agent.Platform.Linux.LinuxAgentProcessInspector>();
+}
+else
+{
+    throw new PlatformNotSupportedException("IvyCaster.Agent currently supports only Windows and Linux.");
 }
 
 builder.Services.AddHostedService<AgentWorker>();
