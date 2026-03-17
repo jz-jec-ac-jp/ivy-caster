@@ -1,0 +1,77 @@
+# ワークフローの名前
+name: Notify Review Request to Discord
+
+# ワークフローが実行されるタイミング
+on:
+  pull_request:
+    types: [review_requested] # プルリクエストでレビューがリクエストされた時
+
+# 実行される処理内容
+jobs:
+  notify:
+    # 実行環境
+    runs-on: ubuntu-latest
+    # ユーザーへのレビュー依頼時のみ実行（team依頼はスキップ）
+    if: github.event.requested_reviewer != null
+    steps:
+      # ステップ1: GitHubユーザー名からDiscordユーザーIDを取得する
+      - name: Get Discord User ID
+        id: get_user_id
+        run: |
+          USER_MAP='${{ secrets.DISCORD_USER_MAP }}'
+          GITHUB_USERNAME='${{ github.event.requested_reviewer.login }}'
+          DISCORD_USER_ID=$(echo "$USER_MAP" | jq -r ".[\"$GITHUB_USERNAME\"]")
+          echo "DISCORD_USER_ID=$DISCORD_USER_ID" >> $GITHUB_OUTPUT
+
+      # ステップ2: Discordに通知を送信する
+      - name: Send Notification to Discord
+        if: steps.get_user_id.outputs.DISCORD_USER_ID != 'null'
+        env:
+          # GitHubコンテキスト由来の値を環境変数として受け取り、jqで安全にJSON化する
+          DISCORD_USER_ID: ${{ steps.get_user_id.outputs.DISCORD_USER_ID }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR_NAME: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR_AVATAR_URL: ${{ github.event.pull_request.user.avatar_url }}
+          # descriptionは常にJSON文字列として扱う（null時は空文字）
+          PR_BODY_TEXT: ${{ github.event.pull_request.body || '' }}
+        run: |
+          DESCRIPTION="${PR_BODY_TEXT}"
+          if [ "${#DESCRIPTION}" -gt 4096 ]; then
+            DESCRIPTION="${DESCRIPTION:0:4093}..."
+          fi
+
+          # jqを使って安全にJSONを構築する
+          jq -n \
+            --arg content "<@${DISCORD_USER_ID}> さん、レビューをお願いします！\nプルリクエストがレビュー待ちです。内容の確認をお願いします。" \
+            --arg title "${PR_TITLE} (#${PR_NUMBER})" \
+            --arg url "${PR_URL}" \
+            --arg description "${DESCRIPTION}" \
+            --arg author_name "${PR_AUTHOR_NAME}" \
+            --arg author_avatar_url "${PR_AUTHOR_AVATAR_URL}" \
+            '{
+              content: $content,
+              embeds: [
+                {
+                  title: $title,
+                  url: $url,
+                  description: $description,
+                  color: 3447003,
+                  author: {
+                    name: $author_name,
+                    icon_url: $author_avatar_url
+                  }
+                }
+              ]
+            }' > payload.json
+
+          # `curl`コマンドを使って、組み立てたJSONデータをファイルから読み込んで送信します
+          curl --fail-with-body --show-error --silent \
+               --max-time 30 \
+               --retry 3 \
+               --retry-delay 2 \
+               --retry-connrefused \
+               -H "Content-Type: application/json" \
+               -d @payload.json \
+               "${{ secrets.DISCORD_WEBHOOK_URL }}"

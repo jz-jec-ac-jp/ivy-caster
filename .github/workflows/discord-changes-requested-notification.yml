@@ -1,0 +1,77 @@
+# ワークフローの名前
+name: Notify Changes Requested to Discord
+
+# ワークフローが実行されるタイミング
+on:
+  pull_request_review:
+    types: [submitted] # プルリクエストのレビューが提出された時
+
+# 実行される処理内容
+jobs:
+  notify:
+    # 実行環境
+    runs-on: ubuntu-latest
+    # レビューが「変更要求」の場合のみジョブを実行
+    if: github.event.review.state == 'changes_requested'
+    steps:
+      # ステップ1: PR作成者のGitHubユーザー名からDiscordユーザーIDを取得する
+      - name: Get Discord User ID
+        id: get_user_id
+        run: |
+          USER_MAP='${{ secrets.DISCORD_USER_MAP }}'
+          GITHUB_USERNAME='${{ github.event.pull_request.user.login }}'
+          DISCORD_USER_ID=$(echo "$USER_MAP" | jq -r ".[\"$GITHUB_USERNAME\"]")
+          echo "DISCORD_USER_ID=$DISCORD_USER_ID" >> $GITHUB_OUTPUT
+
+      # ステップ2: Discordに通知を送信する
+      - name: Send Notification to Discord
+        if: steps.get_user_id.outputs.DISCORD_USER_ID != 'null'
+        env:
+          # GitHubコンテキスト由来の値を環境変数として受け取り、jqで安全にJSON化する
+          DISCORD_USER_ID: ${{ steps.get_user_id.outputs.DISCORD_USER_ID }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.review.html_url }}
+          REVIEWER_NAME: ${{ github.event.review.user.login }}
+          REVIEWER_AVATAR_URL: ${{ github.event.review.user.avatar_url }}
+          # descriptionは常にJSON文字列として扱う（null時は空文字）
+          PR_BODY_TEXT: ${{ github.event.pull_request.body || '' }}
+        run: |
+          DESCRIPTION="${PR_BODY_TEXT}"
+          if [ "${#DESCRIPTION}" -gt 4096 ]; then
+            DESCRIPTION="${DESCRIPTION:0:4093}..."
+          fi
+
+          # jqを使って安全にJSONを構築する
+          jq -n \
+            --arg content "<@${DISCORD_USER_ID}> さん、プルリクエストに変更要求がありました。内容の確認をお願いします。" \
+            --arg title "${PR_TITLE} (#${PR_NUMBER})" \
+            --arg url "${PR_URL}" \
+            --arg reviewer_name "${REVIEWER_NAME}" \
+            --arg reviewer_avatar_url "${REVIEWER_AVATAR_URL}" \
+            --arg description "${DESCRIPTION}" \
+            '{
+              content: $content,
+              embeds: [
+                {
+                  title: $title,
+                  url: $url,
+                  description: $description,
+                  color: 15158332,
+                  author: {
+                    name: $reviewer_name,
+                    icon_url: $reviewer_avatar_url
+                  }
+                }
+              ]
+            }' > payload.json
+
+          # `curl`コマンドを使って、組み立てたJSONデータをファイルから読み込んで送信します
+          curl --fail-with-body --show-error --silent \
+               --max-time 30 \
+               --retry 3 \
+               --retry-delay 2 \
+               --retry-connrefused \
+               -H "Content-Type: application/json" \
+               -d @payload.json \
+               "${{ secrets.DISCORD_WEBHOOK_URL }}"
