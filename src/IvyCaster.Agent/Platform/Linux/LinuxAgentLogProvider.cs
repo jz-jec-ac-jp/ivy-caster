@@ -6,11 +6,7 @@ public sealed class LinuxAgentLogProvider : IAgentLogProvider
 {
     public Task<IReadOnlyList<AgentLogEntry>> GetRecentAsync(int take, CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<AgentLogEntry> result =
-        [
-            new(DateTimeOffset.UtcNow, "Warning", "Linux log provider is not implemented yet.")
-        ];
-
+        IReadOnlyList<AgentLogEntry> result = Array.Empty<AgentLogEntry>();
         return Task.FromResult(result);
     }
 }
