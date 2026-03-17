@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using IvyCaster.Core;
 
 namespace IvyCaster.Agent.Platform.Linux;
@@ -10,21 +11,7 @@ public sealed class LinuxProcessRunner : IProcessRunner
         CancellationToken cancellationToken = default)
     {
         var startedAt = DateTimeOffset.UtcNow;
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = request.Command,
-            Arguments = request.Arguments,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        if (!string.IsNullOrWhiteSpace(request.WorkingDirectory))
-        {
-            startInfo.WorkingDirectory = request.WorkingDirectory;
-        }
+        var startInfo = BuildStartInfo(request);
 
         using var process = new Process { StartInfo = startInfo };
         process.Start();
@@ -47,6 +34,65 @@ public sealed class LinuxProcessRunner : IProcessRunner
             StandardError: error,
             StartedAtUtc: startedAt,
             FinishedAtUtc: finishedAt);
+    }
+
+    private static ProcessStartInfo BuildStartInfo(CommandExecutionRequest request)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        var shell = request.Shell;
+        if (shell == ShellKind.Cmd)
+        {
+            Trace.TraceWarning("ShellKind.Cmd on Linux is deprecated; using Bash execution for compatibility.");
+            shell = ShellKind.Bash;
+        }
+        else if (shell == ShellKind.PowerShell)
+        {
+            Trace.TraceWarning("ShellKind.PowerShell on Linux is deprecated; using Pwsh execution for compatibility.");
+            shell = ShellKind.Pwsh;
+        }
+
+        switch (shell)
+        {
+            case ShellKind.Bash:
+                startInfo.FileName = "/bin/bash";
+                startInfo.ArgumentList.Add("-lc");
+                startInfo.ArgumentList.Add(BuildFullCommand(request.Command, request.Arguments));
+                break;
+            case ShellKind.Pwsh:
+                startInfo.FileName = "pwsh";
+                AddEncodedPowerShellCommandArguments(startInfo, request.Command, request.Arguments);
+                break;
+            default:
+                throw new NotSupportedException($"LinuxProcessRunner does not support shell kind: {request.Shell}.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.WorkingDirectory))
+        {
+            startInfo.WorkingDirectory = request.WorkingDirectory;
+        }
+
+        return startInfo;
+    }
+
+    private static string BuildFullCommand(string command, string? arguments)
+        => string.IsNullOrWhiteSpace(arguments) ? command : $"{command} {arguments}";
+
+    private static void AddEncodedPowerShellCommandArguments(ProcessStartInfo startInfo, string command, string? arguments)
+    {
+        var fullCommand = BuildFullCommand(command, arguments);
+        var encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(fullCommand));
+        startInfo.ArgumentList.Add("-NoProfile");
+        startInfo.ArgumentList.Add("-ExecutionPolicy");
+        startInfo.ArgumentList.Add("Bypass");
+        startInfo.ArgumentList.Add("-EncodedCommand");
+        startInfo.ArgumentList.Add(encodedCommand);
     }
 
     private static void TerminateProcessTree(Process process)

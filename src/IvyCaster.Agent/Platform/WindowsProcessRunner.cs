@@ -31,23 +31,20 @@ public sealed class WindowsProcessRunner : IProcessRunner
             }
             case ShellKind.PowerShell:
             {
-                var fullCommand = BuildFullCommand(request.Command, request.Arguments);
-                var encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(fullCommand));
                 startInfo.FileName = "powershell.exe";
-                startInfo.ArgumentList.Add("-NoProfile");
-                startInfo.ArgumentList.Add("-ExecutionPolicy");
-                startInfo.ArgumentList.Add("Bypass");
-                startInfo.ArgumentList.Add("-EncodedCommand");
-                startInfo.ArgumentList.Add(encodedCommand);
+                AddEncodedPowerShellCommandArguments(startInfo, request.Command, request.Arguments);
                 break;
             }
-            default:
-                startInfo.FileName = request.Command;
-                if (!string.IsNullOrWhiteSpace(request.Arguments))
-                {
-                    startInfo.Arguments = request.Arguments;
-                }
+            case ShellKind.Pwsh:
+            {
+                startInfo.FileName = "pwsh.exe";
+                AddEncodedPowerShellCommandArguments(startInfo, request.Command, request.Arguments);
                 break;
+            }
+            case ShellKind.Bash:
+                throw new NotSupportedException("WindowsProcessRunner does not support shell kind: Bash.");
+            default:
+                throw new NotSupportedException($"WindowsProcessRunner does not support shell kind: {request.Shell}.");
         }
 
         if (!string.IsNullOrWhiteSpace(request.WorkingDirectory))
@@ -87,6 +84,17 @@ public sealed class WindowsProcessRunner : IProcessRunner
 
     private static string BuildFullCommand(string command, string? arguments)
         => string.IsNullOrWhiteSpace(arguments) ? command : $"{command} {arguments}";
+
+    private static void AddEncodedPowerShellCommandArguments(ProcessStartInfo startInfo, string command, string? arguments)
+    {
+        var fullCommand = BuildFullCommand(command, arguments);
+        var encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(fullCommand));
+        startInfo.ArgumentList.Add("-NoProfile");
+        startInfo.ArgumentList.Add("-ExecutionPolicy");
+        startInfo.ArgumentList.Add("Bypass");
+        startInfo.ArgumentList.Add("-EncodedCommand");
+        startInfo.ArgumentList.Add(encodedCommand);
+    }
 
     private static string WrapForCmd(string command)
     {

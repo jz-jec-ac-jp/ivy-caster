@@ -48,4 +48,16 @@ public sealed class WindowsProcessRunnerTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sut.ExecuteAsync(request, cts.Token));
     }
+
+    [Fact]
+    public async Task ExecuteAsync_Bash_ThrowsNotSupportedException()
+    {
+        var sut = new WindowsProcessRunner();
+        var request = new CommandExecutionRequest(
+            Command: "echo hello",
+            Shell: ShellKind.Bash);
+
+        var ex = await Assert.ThrowsAsync<NotSupportedException>(() => sut.ExecuteAsync(request));
+        Assert.Contains(nameof(ShellKind.Bash), ex.Message, StringComparison.Ordinal);
+    }
 }

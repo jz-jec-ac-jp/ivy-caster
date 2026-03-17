@@ -20,7 +20,9 @@ public sealed record DeploymentResult(
 public enum ShellKind
 {
     Cmd,
-    PowerShell
+    PowerShell,
+    Pwsh,
+    Bash
 }
 
 public sealed record CommandExecutionRequest(
