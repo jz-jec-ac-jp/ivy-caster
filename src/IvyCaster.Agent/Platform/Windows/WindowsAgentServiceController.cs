@@ -42,15 +42,13 @@ public sealed class WindowsAgentServiceController(
                         $"Restart failed: service name is unavailable. Set {ServiceNameEnv} or run in interactive mode."));
                 }
 
-                // Service mode: request start directly so it is not gated by stop result.
-                var serviceRestartCommand = $"/c sc start {QuoteArgument(serviceName)}";
-                Process.Start(new ProcessStartInfo
+                var helperStarted = StartServiceRestartHelper(serviceName);
+                if (!helperStarted)
                 {
-                    FileName = "cmd.exe",
-                    Arguments = serviceRestartCommand,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                });
+                    return Task.FromResult(new ManagementOperationResult(
+                        false,
+                        $"Restart failed: could not launch restart helper for {serviceName}."));
+                }
 
                 lifetime.StopApplication();
 
@@ -66,18 +64,18 @@ public sealed class WindowsAgentServiceController(
             }
 
             var currentArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
-            var joinedArgs = string.Join(" ", currentArgs.Select(QuoteArgument));
-            var restartCommand = string.IsNullOrWhiteSpace(joinedArgs)
-                ? $"/c timeout /t 1 /nobreak >nul && start \"\" \"{path}\""
-                : $"/c timeout /t 1 /nobreak >nul && start \"\" \"{path}\" {joinedArgs}";
-
-            Process.Start(new ProcessStartInfo
+            var restartStartInfo = new ProcessStartInfo
             {
-                FileName = "cmd.exe",
-                Arguments = restartCommand,
+                FileName = path,
                 UseShellExecute = false,
                 CreateNoWindow = true
-            });
+            };
+            foreach (var arg in currentArgs)
+            {
+                restartStartInfo.ArgumentList.Add(arg);
+            }
+
+            Process.Start(restartStartInfo);
 
             _ = Task.Run(async () =>
             {
@@ -91,22 +89,6 @@ public sealed class WindowsAgentServiceController(
         {
             return Task.FromResult(new ManagementOperationResult(false, $"Restart failed: {ex.Message}"));
         }
-    }
-
-    private static string QuoteArgument(string value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return "\"\"";
-        }
-
-        if (!value.Contains(' ') && !value.Contains('"'))
-        {
-            return value;
-        }
-
-        var escaped = value.Replace("\"", "\\\"");
-        return $"\"{escaped}\"";
     }
 
     private static bool IsRunningAsWindowsService()
@@ -126,5 +108,38 @@ public sealed class WindowsAgentServiceController(
 
         var processName = Process.GetCurrentProcess().ProcessName;
         return processName;
+    }
+
+    private static bool StartServiceRestartHelper(string serviceName)
+    {
+        const string restartScript =
+            "$serviceName = $args[0]; " +
+            "sc.exe stop $serviceName | Out-Null; " +
+            "$deadline = (Get-Date).AddSeconds(30); " +
+            "do { " +
+            "  $state = sc.exe query $serviceName | Select-String 'STATE'; " +
+            "  if ($state -match 'STOPPED') { break }; " +
+            "  Start-Sleep -Milliseconds 500; " +
+            "} while ((Get-Date) -lt $deadline); " +
+            "sc.exe start $serviceName | Out-Null;";
+
+        var helperProcess = Process.Start(new ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            ArgumentList =
+            {
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                restartScript,
+                serviceName
+            }
+        });
+
+        return helperProcess is not null;
     }
 }
