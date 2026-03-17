@@ -1,16 +1,21 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using IvyCaster.Agent.Runtime;
 using IvyCaster.Core;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Hosting.WindowsServices;
+using Microsoft.Win32;
 
 namespace IvyCaster.Agent.Platform.Windows;
 
+[SupportedOSPlatform("windows")]
 public sealed class WindowsAgentServiceController(
     IHostApplicationLifetime lifetime,
     AgentRuntimeState runtimeState) : IAgentServiceController
 {
     private const string ServiceNameEnv = "IVYCASTER_AGENT_SERVICE_NAME";
+    private const string RegistryServicePath = @"Software\IvyContainer\IvyCaster";
+    private const string RegistryServiceNameValue = "ServiceName";
 
     public Task<AgentServiceState> GetStateAsync(CancellationToken cancellationToken = default)
     {
@@ -110,8 +115,40 @@ public sealed class WindowsAgentServiceController(
             return configured;
         }
 
+        var registryConfigured = TryReadServiceNameFromRegistry();
+        if (!string.IsNullOrWhiteSpace(registryConfigured))
+        {
+            return registryConfigured;
+        }
+
         throw new InvalidOperationException(
-            $"Service operation aborted: required environment variable {ServiceNameEnv} is not set.");
+            $"Service operation aborted: service name is not configured. Set {ServiceNameEnv} or HKLM\\{RegistryServicePath}\\{RegistryServiceNameValue}.");
+    }
+
+    private static string? TryReadServiceNameFromRegistry()
+    {
+        try
+        {
+            var from64 = TryReadServiceNameFromRegistryView(RegistryView.Registry64);
+            if (!string.IsNullOrWhiteSpace(from64))
+            {
+                return from64;
+            }
+
+            return TryReadServiceNameFromRegistryView(RegistryView.Registry32);
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceWarning($"Failed to read service name from registry: {ex}");
+            return null;
+        }
+    }
+
+    private static string? TryReadServiceNameFromRegistryView(RegistryView view)
+    {
+        using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view);
+        using var key = baseKey.OpenSubKey(RegistryServicePath, writable: false);
+        return key?.GetValue(RegistryServiceNameValue) as string;
     }
 
     private static bool StartServiceRestartHelper(string serviceName)
