@@ -37,6 +37,11 @@ jobs:
           # descriptionは常にJSON文字列として扱う（null時は空文字）
           PR_BODY_TEXT: ${{ github.event.pull_request.body || '' }}
         run: |
+          DESCRIPTION="${PR_BODY_TEXT}"
+          if [ "${#DESCRIPTION}" -gt 4096 ]; then
+            DESCRIPTION="${DESCRIPTION:0:4093}..."
+          fi
+
           # jqを使って安全にJSONを構築する
           jq -n \
             --arg content "<@${DISCORD_USER_ID}> さん、プルリクエストに変更要求がありました。内容の確認をお願いします。" \
@@ -44,7 +49,7 @@ jobs:
             --arg url "${PR_URL}" \
             --arg reviewer_name "${REVIEWER_NAME}" \
             --arg reviewer_avatar_url "${REVIEWER_AVATAR_URL}" \
-            --arg description "${PR_BODY_TEXT}" \
+            --arg description "${DESCRIPTION}" \
             '{
               content: $content,
               embeds: [
@@ -62,6 +67,11 @@ jobs:
             }' > payload.json
 
           # `curl`コマンドを使って、組み立てたJSONデータをファイルから読み込んで送信します
-          curl -H "Content-Type: application/json" \
+          curl --fail-with-body --show-error --silent \
+               --max-time 30 \
+               --retry 3 \
+               --retry-delay 2 \
+               --retry-connrefused \
+               -H "Content-Type: application/json" \
                -d @payload.json \
                "${{ secrets.DISCORD_WEBHOOK_URL }}"
