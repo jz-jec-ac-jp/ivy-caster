@@ -2,6 +2,7 @@ using System.Diagnostics;
 using IvyCaster.Agent.Runtime;
 using IvyCaster.Core;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Hosting.WindowsServices;
 
 namespace IvyCaster.Agent.Platform.Windows;
 
@@ -93,9 +94,7 @@ public sealed class WindowsAgentServiceController(
 
     private static bool IsRunningAsWindowsService()
     {
-        // In dev/admin manual run, UserInteractive is usually true.
-        // In service host context, it is false.
-        return !Environment.UserInteractive;
+        return WindowsServiceHelpers.IsWindowsService();
     }
 
     private static string ResolveServiceName()
