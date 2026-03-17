@@ -10,14 +10,11 @@ public sealed class LinuxProcessRunner : IProcessRunner
         CancellationToken cancellationToken = default)
     {
         var startedAt = DateTimeOffset.UtcNow;
-        var fullCommand = string.IsNullOrWhiteSpace(request.Arguments)
-            ? request.Command
-            : $"{request.Command} {request.Arguments}";
 
         var startInfo = new ProcessStartInfo
         {
-            FileName = "/bin/bash",
-            Arguments = $"-lc \"{fullCommand}\"",
+            FileName = request.Command,
+            Arguments = request.Arguments,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
