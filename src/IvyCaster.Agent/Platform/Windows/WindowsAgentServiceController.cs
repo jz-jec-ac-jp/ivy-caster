@@ -42,8 +42,8 @@ public sealed class WindowsAgentServiceController(
                         $"Restart failed: service name is unavailable. Set {ServiceNameEnv} or run in interactive mode."));
                 }
 
-                // Service mode: delegate restart to SCM path (sc stop/start).
-                var serviceRestartCommand = $"/c timeout /t 1 /nobreak >nul && sc stop {QuoteArgument(serviceName)} && sc start {QuoteArgument(serviceName)}";
+                // Service mode: request start directly so it is not gated by stop result.
+                var serviceRestartCommand = $"/c sc start {QuoteArgument(serviceName)}";
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = "cmd.exe",
@@ -52,11 +52,7 @@ public sealed class WindowsAgentServiceController(
                     CreateNoWindow = true
                 });
 
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(150);
-                    lifetime.StopApplication();
-                }, CancellationToken.None);
+                lifetime.StopApplication();
 
                 return Task.FromResult(new ManagementOperationResult(
                     true,
