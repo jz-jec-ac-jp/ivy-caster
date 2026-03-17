@@ -1,6 +1,7 @@
 using IvyCaster.Agent;
 using IvyCaster.Agent.Management;
 using IvyCaster.Agent.Platform;
+using IvyCaster.Agent.Platform.Linux;
 using IvyCaster.Agent.Platform.Windows;
 using IvyCaster.Agent.Runtime;
 using IvyCaster.Core;
@@ -30,10 +31,10 @@ if (OperatingSystem.IsWindows())
 }
 else if (OperatingSystem.IsLinux())
 {
-    builder.Services.AddSingleton<IProcessRunner, IvyCaster.Agent.Platform.Linux.LinuxProcessRunner>();
-    builder.Services.AddSingleton<IAgentServiceController, IvyCaster.Agent.Platform.Linux.LinuxAgentServiceController>();
-    builder.Services.AddSingleton<IAgentLogProvider, IvyCaster.Agent.Platform.Linux.LinuxAgentLogProvider>();
-    builder.Services.AddSingleton<IAgentProcessInspector, IvyCaster.Agent.Platform.Linux.LinuxAgentProcessInspector>();
+    builder.Services.AddSingleton<IProcessRunner, LinuxProcessRunner>();
+    builder.Services.AddSingleton<IAgentServiceController, LinuxAgentServiceController>();
+    builder.Services.AddSingleton<IAgentLogProvider, LinuxAgentLogProvider>();
+    builder.Services.AddSingleton<IAgentProcessInspector, LinuxAgentProcessInspector>();
 }
 else
 {
