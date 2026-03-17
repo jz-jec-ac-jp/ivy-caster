@@ -6,9 +6,11 @@ namespace IvyCaster.Agent.Tests;
 
 public sealed class WindowsProcessRunnerTests
 {
-    [Fact]
+    [SkippableFact]
     public async Task ExecuteAsync_Cmd_EchoesExpectedOutput()
     {
+        Skip.IfNot(OperatingSystem.IsWindows(), "Windows-only test.");
+
         var sut = new WindowsProcessRunner();
         var request = new CommandExecutionRequest(
             Command: "echo",
@@ -22,9 +24,11 @@ public sealed class WindowsProcessRunnerTests
         Assert.Contains("hello-from-cmd", result.StandardOutput, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ExecuteAsync_PowerShell_UsesEncodedCommand()
     {
+        Skip.IfNot(OperatingSystem.IsWindows(), "Windows-only test.");
+
         var sut = new WindowsProcessRunner();
         var request = new CommandExecutionRequest(
             Command: "Write-Output \"hello from powershell\"",
@@ -37,9 +41,11 @@ public sealed class WindowsProcessRunnerTests
         Assert.Contains("hello from powershell", result.StandardOutput, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ExecuteAsync_WhenCancelled_ThrowsOperationCanceledException()
     {
+        Skip.IfNot(OperatingSystem.IsWindows(), "Windows-only test.");
+
         var sut = new WindowsProcessRunner();
         var request = new CommandExecutionRequest(
             Command: "Start-Sleep -Seconds 10",
@@ -49,9 +55,11 @@ public sealed class WindowsProcessRunnerTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sut.ExecuteAsync(request, cts.Token));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ExecuteAsync_Bash_ThrowsNotSupportedException()
     {
+        Skip.IfNot(OperatingSystem.IsWindows(), "Windows-only test.");
+
         var sut = new WindowsProcessRunner();
         var request = new CommandExecutionRequest(
             Command: "echo hello",
