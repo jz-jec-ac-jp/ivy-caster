@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.Text;
 using IvyCaster.Core;
 
@@ -114,9 +115,12 @@ public sealed class LinuxProcessRunner : IProcessRunner
             process.Kill(entireProcessTree: true);
             return;
         }
-        catch (Exception ex) when (ex is PlatformNotSupportedException or NotSupportedException)
+        catch (Exception ex) when (ex is PlatformNotSupportedException
+            or NotSupportedException
+            or Win32Exception
+            or AggregateException)
         {
-            // Fall back to SIGTERM + forced kill if tree kill is unavailable.
+            Trace.TraceWarning($"Failed to kill process tree directly; falling back to SIGTERM path: {ex}");
         }
         catch (InvalidOperationException)
         {
