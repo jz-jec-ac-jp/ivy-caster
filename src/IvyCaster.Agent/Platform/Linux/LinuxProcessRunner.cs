@@ -28,11 +28,13 @@ public sealed class LinuxProcessRunner : IProcessRunner
 
         using var process = new Process { StartInfo = startInfo };
         process.Start();
+        using var cancellationRegistration = cancellationToken.Register(() => TerminateProcessTree(process));
 
         var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
         var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        var waitForExitTask = process.WaitForExitAsync(cancellationToken);
 
-        await process.WaitForExitAsync(cancellationToken);
+        await Task.WhenAll(waitForExitTask, outputTask, errorTask);
 
         var output = await outputTask;
         var error = await errorTask;
@@ -45,5 +47,65 @@ public sealed class LinuxProcessRunner : IProcessRunner
             StandardError: error,
             StartedAtUtc: startedAt,
             FinishedAtUtc: finishedAt);
+    }
+
+    private static void TerminateProcessTree(Process process)
+    {
+        try
+        {
+            if (process.HasExited)
+            {
+                return;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
+        try
+        {
+            process.Kill(entireProcessTree: true);
+            return;
+        }
+        catch (Exception ex) when (ex is PlatformNotSupportedException or NotSupportedException)
+        {
+            // Fall back to SIGTERM + forced kill if tree kill is unavailable.
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
+        TrySendSigTerm(process.Id);
+
+        try
+        {
+            if (!process.WaitForExit(1000))
+            {
+                process.Kill();
+            }
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private static void TrySendSigTerm(int processId)
+    {
+        try
+        {
+            using var killProcess = Process.Start(new ProcessStartInfo
+            {
+                FileName = "/bin/kill",
+                Arguments = $"-TERM {processId}",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            killProcess?.WaitForExit(1000);
+        }
+        catch (Exception)
+        {
+        }
     }
 }
