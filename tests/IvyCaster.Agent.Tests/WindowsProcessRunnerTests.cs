@@ -2,7 +2,7 @@ using IvyCaster.Agent.Platform;
 using IvyCaster.Core;
 using Xunit;
 
-namespace IvyCaster.Core.Tests;
+namespace IvyCaster.Agent.Tests;
 
 public sealed class WindowsProcessRunnerTests
 {

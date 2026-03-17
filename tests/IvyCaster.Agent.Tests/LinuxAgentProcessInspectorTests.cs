@@ -3,7 +3,7 @@ using IvyCaster.Agent.Platform.Linux;
 using IvyCaster.Agent.Runtime;
 using Xunit;
 
-namespace IvyCaster.Core.Tests;
+namespace IvyCaster.Agent.Tests;
 
 public sealed class LinuxAgentProcessInspectorTests
 {

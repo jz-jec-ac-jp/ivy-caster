@@ -4,7 +4,7 @@ using IvyCaster.Core;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace IvyCaster.Core.Tests;
+namespace IvyCaster.Agent.Tests;
 
 public sealed class AgentWorkerTests
 {

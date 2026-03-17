@@ -1,7 +1,7 @@
 using IvyCaster.Agent.Platform.Linux;
 using Xunit;
 
-namespace IvyCaster.Core.Tests;
+namespace IvyCaster.Agent.Tests;
 
 public sealed class LinuxAgentLogProviderTests
 {
