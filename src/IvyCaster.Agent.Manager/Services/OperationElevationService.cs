@@ -2,13 +2,24 @@ using System.Diagnostics;
 using System.ComponentModel;
 using System.IO;
 using System.Reflection;
-using System.Security.Principal;
 using IvyCaster.Core;
 
 namespace IvyCaster.Agent.Manager.Services;
 
 public sealed class OperationElevationService : IPrivilegeElevationService
 {
+    private readonly IPrivilegeContext _privilegeContext;
+
+    public OperationElevationService()
+        : this(new PlatformPrivilegeContext())
+    {
+    }
+
+    internal OperationElevationService(IPrivilegeContext privilegeContext)
+    {
+        _privilegeContext = privilegeContext ?? throw new ArgumentNullException(nameof(privilegeContext));
+    }
+
     public async Task<ElevationResult> ElevateAndExecuteAsync(string operationName, CancellationToken cancellationToken = default)
     {
         if (!TryNormalizeSupportedOperation(operationName, out var normalizedOperation))
@@ -18,7 +29,7 @@ public sealed class OperationElevationService : IPrivilegeElevationService
 
         try
         {
-            if (IsElevated())
+            if (_privilegeContext.IsElevated())
             {
                 var operationResponse = await ExecuteOperationAsync(normalizedOperation, cancellationToken);
                 return new ElevationResult(operationResponse.Success, false, operationResponse.Message);
@@ -142,20 +153,4 @@ public sealed class OperationElevationService : IPrivilegeElevationService
         };
     }
 
-    private static bool IsElevated()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            using var identity = WindowsIdentity.GetCurrent();
-            var principal = new WindowsPrincipal(identity);
-            return principal.IsInRole(WindowsBuiltInRole.Administrator);
-        }
-
-        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
-        {
-            return string.Equals(Environment.UserName, "root", StringComparison.OrdinalIgnoreCase);
-        }
-
-        return false;
-    }
 }
