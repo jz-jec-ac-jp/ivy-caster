@@ -8,7 +8,7 @@ public sealed class WindowsAgentProcessInspector(AgentRuntimeState runtimeState)
 {
     public Task<AgentProcessSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
     {
-        var process = Process.GetCurrentProcess();
+        using var process = Process.GetCurrentProcess();
         var snapshot = new AgentProcessSnapshot(
             ProcessId: process.Id,
             ProcessName: process.ProcessName,
