@@ -26,8 +26,23 @@ public sealed class AgentWorker(
                 TimestampUtc: DateTimeOffset.UtcNow
             );
 
-            runtimeState.MarkHeartbeat(payload.TimestampUtc);
-            await heartbeatReporter.ReportAsync(payload, stoppingToken);
+            try
+            {
+                await heartbeatReporter.ReportAsync(payload, stoppingToken);
+                runtimeState.MarkHeartbeat(payload.TimestampUtc);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Failed to report heartbeat. agentId={AgentId} timestamp={TimestampUtc}",
+                    payload.AgentId,
+                    payload.TimestampUtc);
+            }
 
             try
             {
