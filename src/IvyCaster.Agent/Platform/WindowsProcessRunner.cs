@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using IvyCaster.Core;
 
 namespace IvyCaster.Agent.Platform;
@@ -11,33 +12,45 @@ public sealed class WindowsProcessRunner : IProcessRunner
     {
         var startedAt = DateTimeOffset.UtcNow;
 
-        var fileName = request.Shell switch
-        {
-            ShellKind.Cmd => "cmd.exe",
-            ShellKind.PowerShell => "powershell.exe",
-            _ => "cmd.exe"
-        };
-
-        var fullCommand = string.IsNullOrWhiteSpace(request.Arguments)
-            ? request.Command
-            : $"{request.Command} {request.Arguments}";
-
-        var shellArguments = request.Shell switch
-        {
-            ShellKind.Cmd => $"/c \"{fullCommand}\"",
-            ShellKind.PowerShell => $"-NoProfile -ExecutionPolicy Bypass -Command \"{fullCommand}\"",
-            _ => $"/c \"{fullCommand}\""
-        };
-
         var startInfo = new ProcessStartInfo
         {
-            FileName = fileName,
-            Arguments = shellArguments,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
+
+        switch (request.Shell)
+        {
+            case ShellKind.Cmd:
+            {
+                var fullCommand = BuildFullCommand(request.Command, request.Arguments);
+                startInfo.FileName = "cmd.exe";
+                startInfo.ArgumentList.Add("/s");
+                startInfo.ArgumentList.Add("/c");
+                startInfo.ArgumentList.Add(WrapForCmd(fullCommand));
+                break;
+            }
+            case ShellKind.PowerShell:
+            {
+                var fullCommand = BuildFullCommand(request.Command, request.Arguments);
+                var encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(fullCommand));
+                startInfo.FileName = "powershell.exe";
+                startInfo.ArgumentList.Add("-NoProfile");
+                startInfo.ArgumentList.Add("-ExecutionPolicy");
+                startInfo.ArgumentList.Add("Bypass");
+                startInfo.ArgumentList.Add("-EncodedCommand");
+                startInfo.ArgumentList.Add(encodedCommand);
+                break;
+            }
+            default:
+                startInfo.FileName = request.Command;
+                if (!string.IsNullOrWhiteSpace(request.Arguments))
+                {
+                    startInfo.Arguments = request.Arguments;
+                }
+                break;
+        }
 
         if (!string.IsNullOrWhiteSpace(request.WorkingDirectory))
         {
@@ -63,5 +76,14 @@ public sealed class WindowsProcessRunner : IProcessRunner
             StandardError: error,
             StartedAtUtc: startedAt,
             FinishedAtUtc: finishedAt);
+    }
+
+    private static string BuildFullCommand(string command, string? arguments)
+        => string.IsNullOrWhiteSpace(arguments) ? command : $"{command} {arguments}";
+
+    private static string WrapForCmd(string command)
+    {
+        var escaped = command.Replace("\"", "\"\"");
+        return $"\"{escaped}\"";
     }
 }
