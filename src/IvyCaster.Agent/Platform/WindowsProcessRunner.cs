@@ -56,6 +56,7 @@ public sealed class WindowsProcessRunner : IProcessRunner
         }
 
         using var process = new Process { StartInfo = startInfo };
+        cancellationToken.ThrowIfCancellationRequested();
         process.Start();
 
         var outputTask = process.StandardOutput.ReadToEndAsync();
