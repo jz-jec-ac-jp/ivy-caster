@@ -4,6 +4,7 @@ using Xunit;
 
 namespace IvyCaster.Agent.Tests;
 
+[Collection("Non-Parallel")]
 public sealed class WindowsAgentServiceControllerTests
 {
     private const string ServiceNameEnv = "IVYCASTER_AGENT_SERVICE_NAME";
