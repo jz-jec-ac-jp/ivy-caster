@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\IvyCaster.Core\IvyCaster.Core.csproj" />
+    <ProjectReference Include="..\..\src\IvyCaster.Agent\IvyCaster.Agent.csproj" />
+    <ProjectReference Include="..\..\src\IvyCaster.Agent.Manager\IvyCaster.Agent.Manager.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -18,6 +20,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.61" />
   </ItemGroup>
 
 </Project>

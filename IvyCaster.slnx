@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/IvyCaster.Agent/IvyCaster.Agent.csproj" />
+    <Project Path="src/IvyCaster.Agent.Manager/IvyCaster.Agent.Manager.csproj" />
     <Project Path="src/IvyCaster.Console/IvyCaster.Console.csproj" />
     <Project Path="src/IvyCaster.Core/IvyCaster.Core.csproj" />
     <Project Path="src/IvyCaster.Infrastructure/IvyCaster.Infrastructure.csproj" />
@@ -8,5 +9,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/IvyCaster.Core.Tests/IvyCaster.Core.Tests.csproj" />
+    <Project Path="tests/IvyCaster.Agent.Tests/IvyCaster.Agent.Tests.csproj" />
   </Folder>
 </Solution>

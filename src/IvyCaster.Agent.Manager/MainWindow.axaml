@@ -1,0 +1,58 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="920" d:DesignHeight="620"
+        x:Class="IvyCaster.Agent.Manager.MainWindow"
+        Title="IvyCaster.Agent.Manager"
+        Width="920"
+        Height="620"
+        MinWidth="860"
+        MinHeight="560">
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16">
+    <TextBlock Text="IvyCaster Agent Manager"
+               FontSize="24"
+               FontWeight="SemiBold" />
+
+    <Border Grid.Row="1" Margin="0,12,0,12" Padding="10" BorderBrush="#303030" BorderThickness="1" CornerRadius="6">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+        <TextBlock x:Name="StatusSummaryTextBlock" VerticalAlignment="Center" Text="状態: 取得中..." />
+        <Button Grid.Column="1" Content="状態更新" Click="RefreshStatus_OnClick" />
+        <Button Grid.Column="2" Content="ログ更新" Click="RefreshLogs_OnClick" />
+        <Button Grid.Column="3" Content="停止" Click="StopAgent_OnClick" />
+        <Button Grid.Column="4" Content="再起動" Click="RestartAgent_OnClick" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="2*,3*" ColumnSpacing="12">
+      <Border BorderBrush="#303030" BorderThickness="1" CornerRadius="6" Padding="8">
+        <Grid RowDefinitions="Auto,*">
+          <TextBlock Text="Agent状態" FontWeight="SemiBold" Margin="0,0,0,8" />
+          <TextBox Grid.Row="1"
+                   x:Name="StatusDetailsTextBox"
+                   IsReadOnly="True"
+                   TextWrapping="Wrap"
+                   AcceptsReturn="True"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto" />
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="1" BorderBrush="#303030" BorderThickness="1" CornerRadius="6" Padding="8">
+        <Grid RowDefinitions="Auto,*">
+          <TextBlock Text="ログ（直近100件）" FontWeight="SemiBold" Margin="0,0,0,8" />
+          <TextBox Grid.Row="1"
+                   x:Name="LogsTextBox"
+                   IsReadOnly="True"
+                   TextWrapping="Wrap"
+                   AcceptsReturn="True"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto" />
+        </Grid>
+      </Border>
+    </Grid>
+
+    <TextBlock Grid.Row="3"
+               Margin="0,12,0,0"
+               Opacity="0.8"
+               Text="このウィンドウを閉じるとタスクトレイへ格納されます。管理操作は実行時のみ昇格します。" />
+  </Grid>
+</Window>

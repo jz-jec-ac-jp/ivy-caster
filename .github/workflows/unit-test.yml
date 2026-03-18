@@ -1,0 +1,43 @@
+name: Unit Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            tests/IvyCaster.Core.Tests/IvyCaster.Core.Tests.csproj
+            tests/IvyCaster.Agent.Tests/IvyCaster.Agent.Tests.csproj
+            src/IvyCaster.Agent/IvyCaster.Agent.csproj
+            src/IvyCaster.Agent.Manager/IvyCaster.Agent.Manager.csproj
+
+      - name: Restore
+        run: |
+          dotnet restore tests/IvyCaster.Core.Tests/IvyCaster.Core.Tests.csproj
+          dotnet restore tests/IvyCaster.Agent.Tests/IvyCaster.Agent.Tests.csproj
+
+      - name: Test Core
+        run: dotnet test tests/IvyCaster.Core.Tests/IvyCaster.Core.Tests.csproj --configuration Release --no-restore
+
+      - name: Test Agent
+        run: dotnet test tests/IvyCaster.Agent.Tests/IvyCaster.Agent.Tests.csproj --configuration Release --no-restore

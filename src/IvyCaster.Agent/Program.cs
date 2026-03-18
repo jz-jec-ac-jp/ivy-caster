@@ -1,13 +1,48 @@
+using IvyCaster.Agent;
+using IvyCaster.Agent.Management;
+using IvyCaster.Agent.Platform;
+using IvyCaster.Agent.Platform.Linux;
+using IvyCaster.Agent.Platform.Windows;
+using IvyCaster.Agent.Runtime;
 using IvyCaster.Core;
-using IvyCaster.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-IDeploymentChannel deploymentChannel = new WmiDeploymentChannel();
+var builder = Host.CreateApplicationBuilder(args);
 
-var request = new DeploymentRequest(
-    TargetHost: "localhost",
-    PackagePath: "./agent-package.msi",
-    Arguments: "/quiet"
-);
+var runtimeState = new AgentRuntimeState(Environment.MachineName, Environment.MachineName);
+builder.Services.AddSingleton(runtimeState);
 
-var result = await deploymentChannel.DeployAsync(request);
-Console.WriteLine($"[{deploymentChannel.ChannelName}] success={result.Success} message=\"{result.Message}\"");
+var logStore = new AgentMemoryLogStore();
+builder.Services.AddSingleton(logStore);
+builder.Services.AddSingleton<IAgentRuntimeLogStore>(logStore);
+builder.Services.AddSingleton<ILoggerProvider>(logStore);
+
+builder.Services.AddSingleton<IHeartbeatReporter, ConsoleHeartbeatReporter>();
+builder.Services.AddSingleton<IAgentManagementService, AgentManagementService>();
+
+if (OperatingSystem.IsWindows())
+{
+    builder.Services.AddSingleton<IProcessRunner, WindowsProcessRunner>();
+    builder.Services.AddSingleton<IAgentServiceController, WindowsAgentServiceController>();
+    builder.Services.AddSingleton<IAgentLogProvider, WindowsAgentLogProvider>();
+    builder.Services.AddSingleton<IAgentProcessInspector, WindowsAgentProcessInspector>();
+}
+else if (OperatingSystem.IsLinux())
+{
+    builder.Services.AddSingleton<IProcessRunner, LinuxProcessRunner>();
+    builder.Services.AddSingleton<IAgentServiceController, LinuxAgentServiceController>();
+    builder.Services.AddSingleton<IAgentLogProvider, LinuxAgentLogProvider>();
+    builder.Services.AddSingleton<IAgentProcessInspector, LinuxAgentProcessInspector>();
+}
+else
+{
+    throw new PlatformNotSupportedException("IvyCaster.Agent currently supports only Windows and Linux.");
+}
+
+builder.Services.AddHostedService<AgentWorker>();
+builder.Services.AddHostedService<AgentManagementPipeServer>();
+
+var host = builder.Build();
+await host.RunAsync();
