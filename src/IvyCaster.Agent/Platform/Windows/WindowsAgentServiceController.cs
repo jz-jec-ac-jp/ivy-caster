@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.Runtime.Versioning;
+using System.ServiceProcess;
 using IvyCaster.Agent.Runtime;
 using IvyCaster.Core;
 using Microsoft.Extensions.Hosting;
@@ -59,6 +61,12 @@ public sealed class WindowsAgentServiceController(
                     return Task.FromResult(new ManagementOperationResult(
                         false,
                         $"Restart failed: could not launch restart helper for {serviceName}."));
+                }
+
+                if (!TryValidateServiceForRestart(serviceName, out var validationError))
+                {
+                    Trace.TraceError($"Restart aborted for service '{serviceName}': {validationError}");
+                    return Task.FromResult(new ManagementOperationResult(false, $"Restart failed: {validationError}"));
                 }
 
                 lifetime.StopApplication();
@@ -188,5 +196,29 @@ public sealed class WindowsAgentServiceController(
     {
         var windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
         return Path.Combine(windowsDirectory, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+    }
+
+    private static bool TryValidateServiceForRestart(string serviceName, out string error)
+    {
+        error = string.Empty;
+
+        try
+        {
+            using var service = new ServiceController(serviceName);
+            var status = service.Status;
+
+            if (status != ServiceControllerStatus.Stopped && !service.CanStop)
+            {
+                error = $"Service '{serviceName}' is in state '{status}' and cannot be stopped.";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
+        {
+            error = $"Service '{serviceName}' does not exist or cannot be queried: {ex.Message}";
+            return false;
+        }
     }
 }
