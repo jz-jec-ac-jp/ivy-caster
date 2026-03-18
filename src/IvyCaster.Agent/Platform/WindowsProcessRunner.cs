@@ -8,6 +8,7 @@ namespace IvyCaster.Agent.Platform;
 public sealed class WindowsProcessRunner : IProcessRunner
 {
     private const int CancellationExitWaitTimeoutMs = 5000;
+    private const int CancellationDrainTimeoutMs = 5000;
 
     public async Task<CommandExecutionResult> ExecuteAsync(
         CommandExecutionRequest request,
@@ -68,8 +69,13 @@ public sealed class WindowsProcessRunner : IProcessRunner
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            TerminateProcessTree(process);
-            await Task.WhenAll(outputTask, errorTask);
+            var exited = TerminateProcessTree(process);
+            if (!exited)
+            {
+                Trace.TraceWarning("Process did not fully terminate during cancellation; attempting bounded output drain.");
+            }
+
+            await DrainStreamsWithTimeoutAsync(outputTask, errorTask, CancellationDrainTimeoutMs);
             throw;
         }
 
@@ -106,7 +112,7 @@ public sealed class WindowsProcessRunner : IProcessRunner
         return $"\"{escaped}\"";
     }
 
-    private static void TerminateProcessTree(Process process)
+    private static bool TerminateProcessTree(Process process)
     {
         try
         {
@@ -139,11 +145,35 @@ public sealed class WindowsProcessRunner : IProcessRunner
             {
                 Trace.TraceWarning(
                     $"Timed out waiting for process exit after cancellation. timeoutMs={CancellationExitWaitTimeoutMs}, processId={process.Id}");
+                return false;
             }
+
+            return true;
         }
         catch (Exception ex) when (ex is InvalidOperationException)
         {
             Trace.TraceWarning($"Failed while waiting for process exit after cancellation: {ex}");
+            return false;
+        }
+    }
+
+    private static async Task DrainStreamsWithTimeoutAsync(Task outputTask, Task errorTask, int timeoutMs)
+    {
+        var drainTask = Task.WhenAll(outputTask, errorTask);
+        var completedTask = await Task.WhenAny(drainTask, Task.Delay(timeoutMs));
+        if (completedTask != drainTask)
+        {
+            Trace.TraceWarning($"Timed out draining process output after cancellation. timeoutMs={timeoutMs}");
+            return;
+        }
+
+        try
+        {
+            await drainTask;
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceWarning($"Failed while draining process output after cancellation: {ex}");
         }
     }
 }
